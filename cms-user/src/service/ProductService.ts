@@ -22,7 +22,7 @@ class ProductService {
         return api.post(`${this.ROOT_API}create-product-detail`, productVariantRequest);
     }
 
-    public update(productRequest: ProductVariantRequest): Promise<AxiosResponse> {
+    public update(productRequest: ProductRequest): Promise<AxiosResponse> {
         return api.put(`${this.ROOT_API}update`, productRequest);
     }
 

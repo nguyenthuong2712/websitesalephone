@@ -11,6 +11,8 @@ public class ProductDetailRequest {
 
     private String description;
 
+    private String status;
+
     private int quantity;
 
     private BigDecimal price;

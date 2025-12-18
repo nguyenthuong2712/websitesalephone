@@ -1,25 +1,35 @@
 export interface IProductRequest {
-    name: string;
+    idProduct: string;
+    productName: string;
     description?: string;
+    status?: string;
 }
 
 export class ProductRequest {
-    public name: string;
+    public idProduct: string;
+    public productName: string;
     public description?: string;
+    public status?: string;
 
     constructor(data: {
-        name: string;
+        idProduct: string;
+        productName: string;
         description?: string;
+        status?: string;
 
     }) {
-        this.name = data.name.trim();
+        this.idProduct = data.idProduct.trim();
+        this.productName = data.productName.trim();
         this.description = data.description?.trim();
+        this.status = data.status?.trim();
     }
 
-    toPayload(): IProductVariantRequest {
+    toPayload(): IProductRequest {
         return {
-            name: this.name,
+            idProduct: this.idProduct,
+            productName: this.productName,
             description: this.description,
+            status: this.status,
         };
     }
 }

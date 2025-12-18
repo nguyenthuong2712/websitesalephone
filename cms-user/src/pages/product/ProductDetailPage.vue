@@ -9,6 +9,8 @@ import {getContrastColor} from "@/utils/Constant.ts";
 import {ProductImageRequest} from "@/models/ProductImageRequest.ts";
 import {useRoute} from "vue-router";
 import {productImageService} from "@/service/ProductImageService.ts";
+import {ProductDetailRequest} from "@/models/ProductDetailRequest";
+import {ProductRequest} from "@/models/ProductRequest";
 
 const route = useRoute();
 const productIdRouter = ref(route.params.id as string) || null;
@@ -21,6 +23,7 @@ const resultsImage = ref<any[]>([]);
 
 // FORM STATE --------------------------------
 const productName = ref("");
+const status = ref("");
 const productDescription = ref("");
 const createProductResponse = ref<CommonResponse<any> | null>(null);
 const createProductDetailResponse = ref<any[]>([]);
@@ -35,8 +38,6 @@ const colorList = ref([]);
 const screenList = ref([]);
 
 const description = ref("");
-const quantity = ref(0);
-const price = ref(0);
 
 const productImageId = ref("");
 const url = ref("");
@@ -90,14 +91,14 @@ const handleCreateProduct = async () => {
   try {
     const req = {
       name: productName.value,
-      description: productDescription.value
+      description: productDescription.value,
+      status: status.value
     };
 
     const res = await productService.createProduct(req);
     if (res.data.code === 0) {
       createProductResponse.value = res.data;
       toast.success("Tạo sản phẩm thành công!");
-      loadAllProductDetail()
     } else {
       toast.error("Tạo sản phẩm không thành công!");
     }
@@ -183,6 +184,32 @@ const handleCreateProductImage = async () => {
   }
 };
 
+const handleUpdateProduct = async () => {
+  const id = createProductResponse?.value?.data.id || productIdRouter?.value;
+
+  if (!id) return;
+  try {
+    const request = new ProductRequest({
+      idProduct: id,
+      productName: productName.value,
+      description: productDescription.value,
+      status: status.value,
+    });
+
+    const payload = request.toPayload();
+    const res = await productService.update(payload);
+    if (res.data.code === 0) {
+      loadAllProductDetail()
+      toast.success("update thành công!");
+    } else {
+      toast.error("Không thể cập nhập ");
+    }
+  } catch (e) {
+    console.error(e);
+    toast.error("Không thể cập nhập ");
+  }
+};
+
 const loadAllProductDetail = async () => {
   const id = createProductResponse?.value?.data.id || productIdRouter?.value;
 
@@ -192,7 +219,8 @@ const loadAllProductDetail = async () => {
   productDetailList.value = res.data.data;
   if (id) {
     productName.value = productDetailList.value[0]?.productName;
-    productDescription.value = productDetailList.value[0].description;
+    productDescription.value = productDetailList.value[0]?.description;
+    status.value = productDetailList.value[0]?.status;
   }
 };
 
@@ -279,6 +307,16 @@ const deleteImage = async (id) => {
   }
 };
 
+const CreatedOrUpdate = async () => {
+  const id = productIdRouter?.value;
+
+  if (id) {
+    await handleUpdateProduct()
+  } else {
+    await handleCreateProduct()
+  }
+}
+
 </script>
 
 <template>
@@ -287,7 +325,7 @@ const deleteImage = async (id) => {
       <h2 class="card-title"><span id="formIcon">📝</span> <span id="formTitle">Tạo Sản Phẩm Mới</span></h2>
       <!-- Step 1: Create Product -->
       <div id="step1Form">
-        <form id="productForm" @submit.prevent="handleCreateProduct">
+        <form id="productForm" @submit.prevent="CreatedOrUpdate">
           <div class="form-group">
             <label for="productName" class="form-label">
               Tên sản phẩm <span class="required">*</span>
@@ -303,6 +341,31 @@ const deleteImage = async (id) => {
           </div>
 
           <div class="form-group">
+            <label class="form-label">
+              Trạng thái <span class="required">*</span>
+            </label>
+
+            <div class="radio-group">
+              <label class="radio-option">
+                <input
+                    type="radio"
+                    value="ACTIVE"
+                    v-model="status"
+                />
+                <span>Đang bán</span>
+              </label>
+
+              <label class="radio-option">
+                <input
+                    type="radio"
+                    value="INACTIVE"
+                    v-model="status"
+                />
+                <span>Ngừng bán</span>
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
             <label for="productDescription" class="form-label">
               Mô tả sản phẩm <span class="required">*</span>
             </label>
@@ -315,8 +378,11 @@ const deleteImage = async (id) => {
             ></textarea>
           </div>
 
-          <button type="submit" class="btn btn-primary" id="createProductBtn">
+          <button v-if="productIdRouter === null" type="submit" class="btn btn-primary" id="createProductBtn">
             <span>✓</span> Thêm mới sản phẩm
+          </button>
+          <button v-else type="submit" class="btn btn-primary" id="createProductBtn">
+            <span>✓</span> Cập nhập sản phẩm
           </button>
         </form>
       </div><!-- Step 2: Add Details -->
@@ -509,6 +575,36 @@ const deleteImage = async (id) => {
   border-radius: 6px;
   cursor: pointer;
   transition: 0.2s ease;
+}
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.required {
+  color: #e53935;
+}
+
+.radio-group {
+  display: flex;
+  gap: 20px;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.radio-option input[type="radio"] {
+  cursor: pointer;
 }
 
 .delete-image-btn:hover {
