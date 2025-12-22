@@ -10,6 +10,7 @@ import org.example.websitesalephone.entity.OrderStatusHistory;
 import org.example.websitesalephone.entity.Product;
 import org.example.websitesalephone.entity.User;
 import org.example.websitesalephone.enums.OrderStatus;
+import org.example.websitesalephone.enums.ProductStatus;
 import org.example.websitesalephone.enums.RoleEnums;
 import org.example.websitesalephone.repository.OrderRepository;
 import org.example.websitesalephone.repository.OrderStatusHistoryRepository;
@@ -228,7 +229,7 @@ public class OrderServiceImpl implements OrderService {
 
         switch (searchText) {
             case "PRODUCT" -> {
-                result = productRepository.countByIsDeletedFalseAndVariantsIsNotEmpty();
+                result = productRepository.countByVariantsIsNotEmpty();
             }
             case "ORDER" -> {
                 result = orderRepository.countAllByIsDeletedFalse();

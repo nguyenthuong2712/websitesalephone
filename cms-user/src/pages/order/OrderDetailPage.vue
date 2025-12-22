@@ -93,9 +93,17 @@ const updateOrderStatus = async (newStatus: string) => {
  * Những computed này mới dùng được timeline
  * vì timeline đã nằm ngoài fetch()
  */
-const firstIncompleteIndex = computed(() =>
-    timeline.value.findIndex(t => !t.completed)
-);
+const currentStepIndex = computed(() => {
+  // Duyệt ngược từ cuối mảng lên để tìm bước completed = true đầu tiên gặp
+  // Hoặc dùng findLastIndex nếu trình duyệt hỗ trợ, nhưng cách dưới đây an toàn nhất:
+  for (let i = timeline.value.length - 1; i >= 0; i--) {
+    if (timeline.value[i].completed) {
+      return i;
+    }
+  }
+  // Nếu chưa có bước nào completed, trả về 0 (bước đầu tiên)
+  return 0;
+});
 
 const progressPercent = computed(() => {
   const steps = timeline.value.filter(s => s.status !== 'CANCELLED');
@@ -292,8 +300,8 @@ onMounted(() => {
           v-for="(step, idx) in timeline"
           :key="idx"
           :class="{
-      completed: step.completed,
-      active: !step.completed && idx === firstIncompleteIndex
+        'completed': idx < currentStepIndex,  /* Các bước TRƯỚC bước hiện tại là completed (màu xanh tĩnh) */
+        'active': idx === currentStepIndex    /* Bước HIỆN TẠI là active (màu tím + animation) */
     }"
       >
         <div class="step-icon">{{ step.icon }}</div>
@@ -594,7 +602,7 @@ body {
 .timeline-step.active .step-icon {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-color: #667eea;
-  //animation: pulse 2s infinite;
+  animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
