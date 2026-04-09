@@ -11,6 +11,12 @@ public class ProductDetailRequest {
 
     private String description;
 
+    private String location;
+
+    private String storage;
+
+    private String deviceMake;
+
     private String status;
 
     private int quantity;

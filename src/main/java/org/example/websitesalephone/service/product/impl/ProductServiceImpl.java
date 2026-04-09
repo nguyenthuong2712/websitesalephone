@@ -173,6 +173,9 @@ public class ProductServiceImpl implements ProductService {
         }
 
         product.setDescription(productDetailRequest.getDescription());
+        product.setLocation(productDetailRequest.getLocation());
+        product.setStorage(productDetailRequest.getStorage());
+        product.setDeviceMake(productDetailRequest.getDeviceMake());
         product.setName(productDetailRequest.getProductName());
         product.setStatus(ProductStatus.valueOf(productDetailRequest.getStatus()));
         productRepository.saveAndFlush(product);
@@ -433,6 +436,9 @@ public class ProductServiceImpl implements ProductService {
         product.setId(UUID.randomUUID().toString());
         product.setName(productRequest.getName());
         product.setDescription(productRequest.getDescription());
+        product.setLocation(productRequest.getLocation());
+        product.setStorage(productRequest.getStorage());
+        product.setDeviceMake(productRequest.getDeviceMake());
         product.setStatus(ProductStatus.ACTIVE);
         productRepository.save(product);
         return CommonResponse

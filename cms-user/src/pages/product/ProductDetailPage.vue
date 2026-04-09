@@ -25,6 +25,9 @@ const resultsImage = ref<any[]>([]);
 const productName = ref("");
 const status = ref("");
 const productDescription = ref("");
+const location = ref("");
+const storage = ref("");
+const deviceMake = ref("");
 const createProductResponse = ref<CommonResponse<any> | null>(null);
 const createProductDetailResponse = ref<any[]>([]);
 const createProductImageResponse = ref<any[]>([]);
@@ -92,6 +95,9 @@ const handleCreateProduct = async () => {
     const req = {
       name: productName.value,
       description: productDescription.value,
+      location: location.value,
+      storage: storage.value,
+      deviceMake: deviceMake.value,
       status: status.value
     };
 
@@ -193,6 +199,9 @@ const handleUpdateProduct = async () => {
       idProduct: id,
       productName: productName.value,
       description: productDescription.value,
+      location: location.value,
+      storage: storage.value,
+      deviceMake: deviceMake.value,
       status: status.value,
     });
 
@@ -220,6 +229,9 @@ const loadAllProductDetail = async () => {
   if (id) {
     productName.value = productDetailList.value[0]?.productName;
     productDescription.value = productDetailList.value[0]?.description;
+    location.value = productDetailList.value[0]?.location;
+    storage.value = productDetailList.value[0]?.storage;
+    deviceMake.value = productDetailList.value[0]?.deviceMake;
     status.value = productDetailList.value[0]?.status;
   }
 };
@@ -376,6 +388,42 @@ const CreatedOrUpdate = async () => {
                 v-model="productDescription"
                 required
             ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="location" class="form-label">
+              Location
+            </label>
+            <input
+                type="text"
+                id="location"
+                class="form-input"
+                placeholder="VD: Vietnam"
+                v-model="location"
+            />
+          </div>
+          <div class="form-group">
+            <label for="storage" class="form-label">
+              Storage (dung lượng)
+            </label>
+            <input
+                type="text"
+                id="storage"
+                class="form-input"
+                placeholder="VD: 128GB"
+                v-model="storage"
+            />
+          </div>
+          <div class="form-group">
+            <label for="deviceMake" class="form-label">
+              Device make
+            </label>
+            <input
+                type="text"
+                id="deviceMake"
+                class="form-input"
+                placeholder="VD: Apple, Samsung, Xiaomi"
+                v-model="deviceMake"
+            />
           </div>
 
           <button v-if="productIdRouter === null" type="submit" class="btn btn-primary" id="createProductBtn">

@@ -29,6 +29,9 @@ public enum OrderStatus {
     }
 
     public static OrderStatus fromCode(String code) {
+        if ("COMPLETE".equalsIgnoreCase(code)) {
+            return COMPLETED;
+        }
         for (OrderStatus status : values()) {
             if (status.code.equalsIgnoreCase(code)) {
                 return status;

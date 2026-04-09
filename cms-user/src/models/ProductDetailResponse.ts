@@ -7,6 +7,9 @@ export interface IDynamicResponse {
 export interface IProductDetailResponse {
     productName: string;
     description: string;
+    location: string;
+    storage: string;
+    deviceMake: string;
     quantity: number;
     price: number; // hoặc string nếu backend trả string
     colors: IDynamicResponse[];
@@ -25,6 +28,9 @@ export interface IProductDetailResponse {
 export class ProductDetailResponse implements IProductDetailResponse {
     productName: string;
     description: string;
+    location: string;
+    storage: string;
+    deviceMake: string;
     quantity: number;
     price: number;
     colors: IDynamicResponse[];
@@ -41,6 +47,9 @@ export class ProductDetailResponse implements IProductDetailResponse {
     constructor(data: Partial<IProductDetailResponse>) {
         this.productName = data.productName || "";
         this.description = data.description || "";
+        this.location = data.location || "";
+        this.storage = data.storage || "";
+        this.deviceMake = data.deviceMake || "";
         this.quantity = data.quantity || 0;
         this.price = data.price || 0;
         this.colors = data.colors || [];
@@ -60,6 +69,9 @@ export class ProductDetailResponse implements IProductDetailResponse {
         return new ProductDetailResponse({
             productName: data.productName,
             description: data.description,
+            location: data.location,
+            storage: data.storage,
+            deviceMake: data.deviceMake,
             quantity: data.quantity,
             price: data.price,
             colors: data.colors || [],

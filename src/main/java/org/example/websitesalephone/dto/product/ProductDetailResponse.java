@@ -17,6 +17,9 @@ public class ProductDetailResponse {
     private String id;
     private String productName;
     private String description;
+    private String location;
+    private String storage;
+    private String deviceMake;
     private BigDecimal price;
     private List<DynamicResponse> colors;
     private List<DynamicResponse> cameras;
@@ -43,6 +46,9 @@ public class ProductDetailResponse {
                 .id(product.getId())
                 .productName(product.getName())
                 .description(product.getDescription())
+                .location(product.getLocation())
+                .storage(product.getStorage())
+                .deviceMake(product.getDeviceMake())
                 .price(variant.getPrice())
                 .responseList(responseList.isEmpty() ? null : responseList)
                 .colors(removeDuplicate(productVariants.stream()
