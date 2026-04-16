@@ -11,7 +11,6 @@ import org.example.websitesalephone.entity.Role;
 import org.example.websitesalephone.entity.User;
 import org.example.websitesalephone.enums.RoleEnums;
 import org.example.websitesalephone.repository.CartRepository;
-import org.example.websitesalephone.repository.OrderRepository;
 import org.example.websitesalephone.repository.RoleRepository;
 import org.example.websitesalephone.repository.UserRepository;
 import org.example.websitesalephone.dto.user.CreateUserDto;
@@ -28,7 +27,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Service

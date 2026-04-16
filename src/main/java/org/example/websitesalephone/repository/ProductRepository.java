@@ -1,6 +1,7 @@
 package org.example.websitesalephone.repository;
 
 import org.example.websitesalephone.entity.Product;
+import org.example.websitesalephone.enums.ProductStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -12,7 +13,8 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 
     Page<Product> findAll(Specification specification, Pageable pageable);
 
-    long countByIsDeletedFalseAndVariantsIsNotEmpty();
+    long countByVariantsIsNotEmpty();
+
 
     List<Product> findTop8ByOrderByCreatedAtDesc();
 

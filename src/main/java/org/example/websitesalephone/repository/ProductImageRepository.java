@@ -10,4 +10,6 @@ public interface ProductImageRepository extends JpaRepository<ProductImage, Stri
     List<ProductImage> findByProduct_idAndIsDeleted(String productId, boolean isDeleted);
 
     ProductImage findByActiveAndId(boolean active, String id);
+    void deleteByProduct_Id(String productId);
+
 }

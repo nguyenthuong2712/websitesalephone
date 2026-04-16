@@ -22,6 +22,12 @@ public class ProductListResponse {
 
     private String productName;
 
+    private String location;
+
+    private String storage;
+
+    private String deviceMake;
+
     private String originName;
 
     private BigDecimal price;
@@ -62,6 +68,9 @@ public class ProductListResponse {
                 .id(entity.getId())
                 .url(imageUrl)
                 .productName(entity.getName())
+                .location(entity.getLocation())
+                .storage(entity.getStorage())
+                .deviceMake(entity.getDeviceMake())
                 .originName(entity.getVariants().isEmpty() ? null
                         : entity.getVariants().getFirst().getOrigin().getName())
                 .price(averagePrice)

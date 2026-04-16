@@ -2,6 +2,7 @@ package org.example.websitesalephone.dto.product;
 
 import lombok.Builder;
 import lombok.Getter;
+import org.example.websitesalephone.entity.Product;
 import org.example.websitesalephone.entity.ProductVariant;
 
 import java.math.BigDecimal;
@@ -15,6 +16,14 @@ public class ProductVariantResponse {
     private String productName;
 
     private String description;
+
+    private String location;
+
+    private String storage;
+
+    private String deviceMake;
+
+    private String status;
 
     private int quantity;
 
@@ -38,12 +47,28 @@ public class ProductVariantResponse {
                 .build();
     }
 
+    public static ProductVariantResponse fromProduct(Product product) {
+        return ProductVariantResponse
+                .builder()
+                .productName(product.getName())
+                .description(product.getDescription())
+                .location(product.getLocation())
+                .storage(product.getStorage())
+                .deviceMake(product.getDeviceMake())
+                .status(product.getStatus().getCode())
+                .build();
+    }
+
     public static ProductVariantResponse fromEntity(ProductVariant productVariant) {
         return ProductVariantResponse
                 .builder()
                 .idProduct(productVariant.getId())
                 .productName(productVariant.getProduct().getName())
                 .description(productVariant.getProduct().getDescription())
+                .location(productVariant.getProduct().getLocation())
+                .storage(productVariant.getProduct().getStorage())
+                .deviceMake(productVariant.getProduct().getDeviceMake())
+                .status(productVariant.getProduct().getStatus().getCode())
                 .quantity(productVariant.getQuantity())
                 .price(productVariant.getPrice())
                 .originName(productVariant.getOrigin().getName())

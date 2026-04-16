@@ -40,6 +40,12 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductVariantRepository productVariantRepository;
 
+    private final CartItemRepository cartItemRepository;
+
+    private final InventoryRepository inventoryRepository;
+
+    private final OrderItemRepository orderItemRepository;
+
     @Override
     public CommonResponse getALl(ProductSearch productSearch) {
 
@@ -52,8 +58,6 @@ public class ProductServiceImpl implements ProductService {
                 String searchText = "%" + productSearch.getSearchText().trim().toLowerCase() + "%";
                 predicates.add(cb.like(cb.lower(root.get("name")), searchText));
             }
-
-            predicates.add(cb.equal(root.get("isDeleted"), false));
 
             predicates.add(cb.isNotEmpty(root.get("variants")));
 
@@ -175,107 +179,15 @@ public class ProductServiceImpl implements ProductService {
         }
 
         product.setDescription(productDetailRequest.getDescription());
+        product.setLocation(productDetailRequest.getLocation());
+        product.setStorage(productDetailRequest.getStorage());
+        product.setDeviceMake(productDetailRequest.getDeviceMake());
         product.setName(productDetailRequest.getProductName());
+        product.setStatus(ProductStatus.valueOf(productDetailRequest.getStatus()));
         productRepository.saveAndFlush(product);
 
-        Color color = colorRepository.findById(productDetailRequest.getColorId()).orElse(null);
-        if (color == null) {
-            return CommonResponse.builder()
-                    .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("Color not found")
-                    .build();
-        }
-
-        Ram ram = ramRepository.findById(productDetailRequest.getRamId()).orElse(null);
-        if (ram == null) {
-            return CommonResponse.builder()
-                    .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("RAM not found")
-                    .build();
-        }
-
-        Origin origin = originRepository.findById(productDetailRequest.getOriginId()).orElse(null);
-        if (origin == null) {
-            return CommonResponse.builder()
-                    .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("Origin not found")
-                    .build();
-        }
-
-        Camera camera = cameraRepository.findById(productDetailRequest.getCameraId()).orElse(null);
-        if (camera == null) {
-            return CommonResponse.builder()
-                    .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("Camera not found")
-                    .build();
-        }
-
-        Screen screen = screenRepository.findById(productDetailRequest.getScreenId()).orElse(null);
-        if (screen == null) {
-            return CommonResponse.builder()
-                    .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("Screen not found")
-                    .build();
-        }
-//
-//        Battery battery = batteryRepository.findById(productDetailRequest.getBatteryId()).orElse(null);
-//        if (battery == null) {
-//            return CommonResponse.builder()
-//                    .code(CommonResponse.CODE_NOT_FOUND)
-//                    .message("Battery not found")
-//                    .build();
-//        }
-//
-//        Storage storage = storageRepository.findById(productDetailRequest.getStorageId()).orElse(null);
-//        if (storage == null) {
-//            return CommonResponse.builder()
-//                    .code(CommonResponse.CODE_NOT_FOUND)
-//                    .message("Storage not found")
-//                    .build();
-//        }
-//
-//        OperatingSystem operatingSystem = operatingSystemRepository.findById(productDetailRequest.getOperatorId()).orElse(null);
-//        if (operatingSystem == null) {
-//            return CommonResponse.builder()
-//                    .code(CommonResponse.CODE_NOT_FOUND)
-//                    .message("Operating System not found")
-//                    .build();
-//        }
-//
-//        Cpu cpu = cpuRepository.findById(productDetailRequest.getCpuId()).orElse(null);
-//        if (cpu == null) {
-//            return CommonResponse.builder()
-//                    .code(CommonResponse.CODE_NOT_FOUND)
-//                    .message("CPU not found")
-//                    .build();
-//        }
-
-        ProductVariant productVariant = productVariantRepository.findById(productDetailRequest.getProductVariantId()).orElse(null);
-
-        if (productVariant == null) {
-            return CommonResponse.builder()
-                    .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("Product variant is not found")
-                    .build();
-        }
-
-        productVariant.setProduct(product);
-//        productVariant.setBattery(battery);
-        productVariant.setCamera(camera);
-        productVariant.setColor(color);
-//        productVariant.setCpu(cpu);
-        productVariant.setScreen(screen);
-//        productVariant.setOperatingSystem(operatingSystem);
-        productVariant.setRam(ram);
-        productVariant.setOrigin(origin);
-//        productVariant.setStorage(storage);
-        productVariant.setPrice(productDetailRequest.getPrice());
-        productVariant.setQuantity(productDetailRequest.getQuantity());
-
-        productVariantRepository.saveAndFlush(productVariant);
-
         return CommonResponse.builder()
-                .data(ProductVariantResponse.fromEntity(productVariant))
+                .data(ProductVariantResponse.fromProduct(product))
                 .code(CommonResponse.CODE_SUCCESS)
                 .build();
 
@@ -331,6 +243,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         product.setDeleted(true);
+        product.setStatus(ProductStatus.INACTIVE);
         productRepository.saveAndFlush(product);
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
@@ -529,12 +442,50 @@ public class ProductServiceImpl implements ProductService {
         product.setId(UUID.randomUUID().toString());
         product.setName(productRequest.getName());
         product.setDescription(productRequest.getDescription());
+        product.setLocation(productRequest.getLocation());
+        product.setStorage(productRequest.getStorage());
+        product.setDeviceMake(productRequest.getDeviceMake());
         product.setStatus(ProductStatus.ACTIVE);
         productRepository.save(product);
         return CommonResponse
                 .builder()
                 .data(product)
                 .code(CommonResponse.CODE_SUCCESS)
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CommonResponse hardDelete(String id) {
+        Product product = productRepository.findById(id).orElse(null);
+        if (product == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_NOT_FOUND)
+                    .message("Product not found")
+                    .build();
+        }
+
+        List<String> variantIds = productVariantRepository.findIdsByProduct_Id(id);
+
+        if (!variantIds.isEmpty() && orderItemRepository.existsByProductVariant_IdIn(variantIds)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Sản phẩm đã phát sinh đơn hàng, không thể xóa hẳn")
+                    .build();
+        }
+
+        if (!variantIds.isEmpty()) {
+            cartItemRepository.deleteByProductVariant_IdIn(variantIds);
+            inventoryRepository.deleteByProductVariant_IdIn(variantIds);
+            productVariantRepository.deleteAllByIdInBatch(variantIds);
+        }
+
+        productImageRepository.deleteByProduct_Id(id);
+        productRepository.deleteById(id);
+
+        return CommonResponse.builder()
+                .code(CommonResponse.CODE_SUCCESS)
+                .message("Đã xóa hẳn sản phẩm")
                 .build();
     }
 }

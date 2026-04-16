@@ -7,4 +7,7 @@ public class ProductRequest {
 
     private String name;
     private String description;
+    private String location;
+    private String storage;
+    private String deviceMake;
 }
