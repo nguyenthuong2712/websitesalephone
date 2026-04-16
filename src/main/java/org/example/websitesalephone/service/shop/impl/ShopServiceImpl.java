@@ -103,7 +103,7 @@ public class ShopServiceImpl implements ShopService {
 
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_SUCCESS)
-                    .message("Đăng ký shop thành công. Tài khoản đã có role PARTNER và có thể switch về CUSTOMER trên UI.")
+                    .message("Đăng ký shop thành công")
                     .data(registration.getId())
                     .build();
         } catch (Exception ex) {
