@@ -70,6 +70,10 @@ class ProductService {
         return api.post(`${this.ROOT_API}new-product`);
     }
 
+    public hardDeleteProduct(id: string): Promise<AxiosResponse> {
+        return api.delete(`${this.ROOT_API}hard-delete/${id}`);
+    }
+
 }
 
 export const productService = new ProductService();

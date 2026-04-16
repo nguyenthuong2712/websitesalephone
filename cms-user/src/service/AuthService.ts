@@ -49,7 +49,7 @@ class AuthService {
 
 
     // Logout
-    public logout(token: string): Promise<apiResponse> {
+    public logout(token?: string): Promise<apiResponse> {
         this.removeTokenAndRole()
         return api.post(`${this.ROOT_API}logout`, null, {params: {token}});
     }

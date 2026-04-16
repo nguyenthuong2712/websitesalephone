@@ -94,4 +94,9 @@ public class ProductController {
         return productService.getAllNewProduct();
     }
 
+    @DeleteMapping("hard-delete/{id}")
+    public CommonResponse hardDelete(@PathVariable(name = "id") String id) {
+        return productService.hardDelete(id);
+    }
+
 }

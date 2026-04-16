@@ -40,6 +40,12 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductVariantRepository productVariantRepository;
 
+    private final CartItemRepository cartItemRepository;
+
+    private final InventoryRepository inventoryRepository;
+
+    private final OrderItemRepository orderItemRepository;
+
     @Override
     public CommonResponse getALl(ProductSearch productSearch) {
 
@@ -445,6 +451,41 @@ public class ProductServiceImpl implements ProductService {
                 .builder()
                 .data(product)
                 .code(CommonResponse.CODE_SUCCESS)
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CommonResponse hardDelete(String id) {
+        Product product = productRepository.findById(id).orElse(null);
+        if (product == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_NOT_FOUND)
+                    .message("Product not found")
+                    .build();
+        }
+
+        List<String> variantIds = productVariantRepository.findIdsByProduct_Id(id);
+
+        if (!variantIds.isEmpty() && orderItemRepository.existsByProductVariant_IdIn(variantIds)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Sản phẩm đã phát sinh đơn hàng, không thể xóa hẳn")
+                    .build();
+        }
+
+        if (!variantIds.isEmpty()) {
+            cartItemRepository.deleteByProductVariant_IdIn(variantIds);
+            inventoryRepository.deleteByProductVariant_IdIn(variantIds);
+            productVariantRepository.deleteAllByIdInBatch(variantIds);
+        }
+
+        productImageRepository.deleteByProduct_Id(id);
+        productRepository.deleteById(id);
+
+        return CommonResponse.builder()
+                .code(CommonResponse.CODE_SUCCESS)
+                .message("Đã xóa hẳn sản phẩm")
                 .build();
     }
 }

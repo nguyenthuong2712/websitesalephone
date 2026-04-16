@@ -10,7 +10,7 @@
 </template>
 
 <script>
-import {authService} from "@/service/AuthService.js";
+import {authService} from "@/service/AuthService.ts";
 import {useRouter} from 'vue-router';
 
 export default {
@@ -34,6 +34,10 @@ export default {
       }
 
       if (role === 'STAFF') {
+        return router.push('/admin/product');
+      }
+
+      if (role === 'PARTNER') {
         return router.push('/admin/product');
       }
 

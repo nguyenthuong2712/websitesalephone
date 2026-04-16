@@ -24,6 +24,20 @@ const logout = () => {
   router.push("/login");
 };
 
+const switchToCustomer = () => {
+  authService.saveRole("CUSTOMER");
+  showMenu.value = false;
+  toast.success("Đã chuyển về vai trò người mua hàng");
+  router.push("/customer/home");
+};
+
+const switchToPartner = () => {
+  authService.saveRole("PARTNER");
+  showMenu.value = false;
+  toast.success("Đã chuyển sang vai trò PARTNER");
+  router.push("/admin/product");
+};
+
 // đóng menu khi click ngoài
 const handleClickOutside = (event: MouseEvent) => {
   const menu = document.querySelector(".user-menu-wrapper");
@@ -78,6 +92,11 @@ onMounted(() => {
             <li>
               <router-link to="/customer/order-by-user">Đơn hàng của tôi</router-link>
             </li>
+            <li>
+              <router-link to="/customer/shop-register">Đăng ký shop</router-link>
+            </li>
+            <li v-if="role === 'PARTNER'" @click="switchToCustomer">Chuyển về người mua</li>
+            <li v-else @click="switchToPartner">Chuyển sang PARTNER</li>
             <li @click="logout">Đăng xuất</li>
           </ul>
         </div>

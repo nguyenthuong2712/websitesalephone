@@ -37,6 +37,8 @@ const handleLogin = async () => {
       setTimeout(() => {
         if (role === 'CUSTOMER') {
           router.push('/customer/home')
+        } else if (role === 'PARTNER') {
+          router.push('/admin/product')
         } else {
           router.push('/admin/dashboard')
         }

@@ -6,7 +6,8 @@ public enum RoleEnums {
 
     ADMIN("ADMIN", "ADMIN"),
     STAFF("STAFF", "STAFF"),
-    CUSTOMER("CUSTOMER", "CUSTOMER");
+    CUSTOMER("CUSTOMER", "CUSTOMER"),
+    PARTNER("PARTNER", "PARTNER");
 
     private final String id;
     private final String value;

@@ -49,7 +49,7 @@ onMounted(async () => {
     <aside class="profile-left">
       <div class="avatar" id="avatar">BD</div>
       <div class="name" id="displayName">{{userStore.user?.fullName}}</div>
-      <div class="role">{{userStore.user.role === 'ADMIN' ? 'Quản Lý' : userStore.user.role === 'STAFF' ? 'Nhân Viên' : 'Khách hàng'}}</div>
+      <div class="role">{{ userStore.user.role === 'ADMIN' ? 'Quản Lý' : userStore.user.role === 'STAFF' ? 'Nhân Viên' : userStore.user.role === 'PARTNER' ? 'Đối tác bán hàng' : 'Khách hàng' }}</div>
       <div class="contact-quick" aria-hidden="false">
         <div class="chip" id="quickEmail">{{userStore.user?.email}}</div>
         <div class="chip" id="quickPhone">{{userStore.user?.telNo}}</div>

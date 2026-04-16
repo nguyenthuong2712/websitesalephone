@@ -50,9 +50,22 @@ watch(searchText, () => {
 const deleted = async (id: string) => {
   const res = await productService.deleteProduct(id);
   if (res.data.code === 0) {
-    toast.success("Xóa sản phẩm thành công")
+    toast.success("Ẩn sản phẩm thành công")
   } else {
-    toast.error("Xóa sản phẩm không thành công")
+    toast.error(res.data.message || "Ẩn sản phẩm thất bại")
+  }
+  await fetchProducts();
+}
+
+const hardDelete = async (id: string) => {
+  if (!confirm("Bạn chắc chắn muốn XÓA HẲN sản phẩm này? Dữ liệu sẽ mất vĩnh viễn.")) {
+    return;
+  }
+  const res = await productService.hardDeleteProduct(id);
+  if (res.data.code === 0) {
+    toast.success("Đã xóa hẳn sản phẩm")
+  } else {
+    toast.error(res.data.message || "Xóa hẳn thất bại")
   }
   await fetchProducts();
 }
@@ -105,7 +118,8 @@ onMounted(async () => {
             <div class="action-buttons">
               <button class="action-btn btn-view">👁️</button>
               <router-link :to="`/admin/product-detail/${product.id}`" class="action-btn btn-edit">✏️</router-link>
-              <button class="action-btn btn-delete" @click="deleted(product.id)">🗑️</button>
+              <button class="action-btn btn-delete" title="Ẩn sản phẩm" @click="deleted(product.id)">🗃️</button>
+              <button class="action-btn btn-delete-forever" title="Xóa hẳn" @click="hardDelete(product.id)">🔥</button>
             </div>
           </td>
         </tr>
