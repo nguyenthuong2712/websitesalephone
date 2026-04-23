@@ -15,7 +15,6 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 
     long countByVariantsIsNotEmpty();
 
-
-    List<Product> findTop8ByOrderByCreatedAtDesc();
+    List<Product> findTop8ByIsDeletedFalseAndStatusOrderByCreatedAtDesc(ProductStatus status);
 
 }

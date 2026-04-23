@@ -20,6 +20,9 @@ public class ProductDetailResponse {
     private String location;
     private String storage;
     private String deviceMake;
+    private String shopId;
+    private String shopName;
+    private String shopOwnerId;
     private BigDecimal price;
     private List<DynamicResponse> colors;
     private List<DynamicResponse> cameras;
@@ -49,6 +52,9 @@ public class ProductDetailResponse {
                 .location(product.getLocation())
                 .storage(product.getStorage())
                 .deviceMake(product.getDeviceMake())
+                .shopId(product.getShopRegistration() == null ? null : product.getShopRegistration().getId())
+                .shopName(product.getShopRegistration() == null ? null : product.getShopRegistration().getShopName())
+                .shopOwnerId(product.getShopRegistration() == null ? null : product.getShopRegistration().getUser().getId())
                 .price(variant.getPrice())
                 .responseList(responseList.isEmpty() ? null : responseList)
                 .colors(removeDuplicate(productVariants.stream()

@@ -1,6 +1,5 @@
 package org.example.websitesalephone.service.product.impl;
 
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.Strings;
 import org.example.websitesalephone.comon.PageResponse;
@@ -8,6 +7,7 @@ import org.example.websitesalephone.dto.dynamic.CreateCartRequest;
 import org.example.websitesalephone.dto.product.*;
 import org.example.websitesalephone.entity.*;
 import org.example.websitesalephone.enums.ProductStatus;
+import org.example.websitesalephone.enums.RoleEnums;
 import org.example.websitesalephone.repository.*;
 import org.example.websitesalephone.service.product.ProductService;
 import org.example.websitesalephone.comon.CommonResponse;
@@ -15,6 +15,9 @@ import org.example.websitesalephone.utils.Utils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +48,8 @@ public class ProductServiceImpl implements ProductService {
     private final InventoryRepository inventoryRepository;
 
     private final OrderItemRepository orderItemRepository;
+    private final UserRepository userRepository;
+    private final ShopRegistrationRepository shopRegistrationRepository;
 
     @Override
     public CommonResponse getALl(ProductSearch productSearch) {
@@ -57,6 +62,20 @@ public class ProductServiceImpl implements ProductService {
             if (Strings.isNotEmpty(productSearch.getSearchText())) {
                 String searchText = "%" + productSearch.getSearchText().trim().toLowerCase() + "%";
                 predicates.add(cb.like(cb.lower(root.get("name")), searchText));
+            }
+
+            if (Strings.isNotEmpty(productSearch.getShopId())) {
+                predicates.add(cb.equal(root.get("shopRegistration").get("id"), productSearch.getShopId()));
+            }
+
+            if (Strings.isNotEmpty(productSearch.getUserId())) {
+                predicates.add(cb.equal(root.get("shopRegistration").get("user").get("id"), productSearch.getUserId()));
+            }
+
+            User loginUser = getCurrentUser();
+            if (loginUser != null && loginUser.getRole() != null
+                    && loginUser.getRole().getRoleEnums() == RoleEnums.PARTNER) {
+                predicates.add(cb.equal(root.get("shopRegistration").get("user").get("id"), loginUser.getId()));
             }
 
             predicates.add(cb.isNotEmpty(root.get("variants")));
@@ -78,11 +97,23 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public CommonResponse createdProductDetail(ProductDetailRequest productRequest) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         Product product = productRepository.findById(productRequest.getIdProduct()).orElse(null);
         if (product == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
                     .message("Product not found")
+                    .build();
+        }
+
+        if (!hasPermissionForProduct(product)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
 
@@ -169,12 +200,24 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public CommonResponse updated(ProductDetailRequest productDetailRequest) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         Product product = productRepository.findById(productDetailRequest.getIdProduct()).orElse(null);
 
         if (product == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
                     .message("Product not found")
+                    .build();
+        }
+
+        if (!hasPermissionForProduct(product)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
 
@@ -201,6 +244,13 @@ public class ProductServiceImpl implements ProductService {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
                     .message("Product not found")
+                    .build();
+        }
+
+        if (!hasPermissionForProduct(product)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
 
@@ -233,12 +283,24 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public CommonResponse deleted(String id) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         Product product = productRepository.findById(id).orElse(null);
 
         if (product == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
                     .message("Product not found")
+                    .build();
+        }
+
+        if (!hasPermissionForProduct(product)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
 
@@ -278,12 +340,23 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public CommonResponse createImage(ProductImageRequest productImageRequest) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         Product product = productRepository.findById(productImageRequest.getProductId()).orElse(null);
 
         if (product == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
                     .message("Product not found")
+                    .build();
+        }
+        if (!hasPermissionForProduct(product)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
 
@@ -302,12 +375,23 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public CommonResponse getAllImage(String productId) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         Product product = productRepository.findById(productId).orElse(null);
 
         if (product == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
                     .message("Product not found")
+                    .build();
+        }
+        if (!hasPermissionForProduct(product)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
 
@@ -327,6 +411,11 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse updateImage(ProductImageRequest productImageRequest) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         ProductImage findByActive = productImageRepository.findByActiveAndId(true, productImageRequest.getProductImageId());
         if (findByActive == null) {
             System.out.println("hiện không có cái ảnh nào đang active");
@@ -344,6 +433,12 @@ public class ProductServiceImpl implements ProductService {
                     .message("Image not found")
                     .build();
         }
+        if (!hasPermissionForProduct(productImage.getProduct())) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
+                    .build();
+        }
         productImage.setActive(true);
         productImageRepository.saveAndFlush(productImage);
 
@@ -356,12 +451,23 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse deletedProductDetail(String id) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         ProductVariant productVariant = productVariantRepository.findById(id).orElse(null);
 
         if (productVariant == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
                     .message("Product not found")
+                    .build();
+        }
+        if (!hasPermissionForProduct(productVariant.getProduct())) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
 
@@ -374,6 +480,25 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public CommonResponse getAllProductVariant(String productId) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
+        Product product = productRepository.findById(productId).orElse(null);
+        if (product == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_NOT_FOUND)
+                    .message("Product not found")
+                    .build();
+        }
+        if (!hasPermissionForProduct(product)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
+                    .build();
+        }
+
         List<ProductVariant> productVariants = productVariantRepository.findByProduct_Id(productId);
 
         if (productVariants.isEmpty()) {
@@ -393,10 +518,21 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public CommonResponse getProductVariantDetail(String productVariantId) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         ProductVariant productVariant = productVariantRepository.findById(productVariantId).orElse(null);
         if (productVariant == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
+                    .build();
+        }
+        if (!hasPermissionForProduct(productVariant.getProduct())) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
 
@@ -409,11 +545,22 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse deletedImage(String idImage) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         ProductImage productImage = productImageRepository.findById(idImage).orElse(null);
 
         if (productImage == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
+                    .build();
+        }
+        if (!hasPermissionForProduct(productImage.getProduct())) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
         productImage.setDeleted(true);
@@ -426,7 +573,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public CommonResponse getAllNewProduct() {
-        List<Product> products = productRepository.findTop8ByOrderByCreatedAtDesc();
+        List<Product> products = productRepository.findTop8ByIsDeletedFalseAndStatusOrderByCreatedAtDesc(ProductStatus.ACTIVE);
 
         List<ProductListResponse> productListResponses = products.stream().map(ProductListResponse::fromEntity).toList();
         return CommonResponse.builder()
@@ -438,7 +585,22 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse createdProduct(ProductRequest productRequest) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         Product product = new Product();
+        ShopRegistration shopRegistration = resolveShopRegistration(productRequest);
+        User loginUser = getCurrentUser();
+        if (loginUser != null && loginUser.getRole() != null
+                && loginUser.getRole().getRoleEnums() == RoleEnums.PARTNER
+                && shopRegistration == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn cần đăng ký shop trước khi tạo sản phẩm")
+                    .build();
+        }
         product.setId(UUID.randomUUID().toString());
         product.setName(productRequest.getName());
         product.setDescription(productRequest.getDescription());
@@ -446,6 +608,7 @@ public class ProductServiceImpl implements ProductService {
         product.setStorage(productRequest.getStorage());
         product.setDeviceMake(productRequest.getDeviceMake());
         product.setStatus(ProductStatus.ACTIVE);
+        product.setShopRegistration(shopRegistration);
         productRepository.save(product);
         return CommonResponse
                 .builder()
@@ -457,11 +620,23 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse hardDelete(String id) {
+        CommonResponse partnerAccess = validatePartnerAccess();
+        if (partnerAccess != null) {
+            return partnerAccess;
+        }
+
         Product product = productRepository.findById(id).orElse(null);
         if (product == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
                     .message("Product not found")
+                    .build();
+        }
+
+        if (!hasPermissionForProduct(product)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Bạn không có quyền quản lý sản phẩm của shop khác")
                     .build();
         }
 
@@ -487,5 +662,61 @@ public class ProductServiceImpl implements ProductService {
                 .code(CommonResponse.CODE_SUCCESS)
                 .message("Đã xóa hẳn sản phẩm")
                 .build();
+    }
+
+    private User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
+            return null;
+        }
+        return userRepository.findByUsernameAndIsDeleted(auth.getName(), false).orElse(null);
+    }
+
+    private boolean hasPermissionForProduct(Product product) {
+        User loginUser = getCurrentUser();
+        if (loginUser == null || loginUser.getRole() == null) {
+            return true;
+        }
+        if (loginUser.getRole().getRoleEnums() != RoleEnums.PARTNER) {
+            return true;
+        }
+        return product.getShopRegistration() != null
+                && product.getShopRegistration().getUser() != null
+                && Objects.equals(product.getShopRegistration().getUser().getId(), loginUser.getId());
+    }
+
+    private ShopRegistration resolveShopRegistration(ProductRequest request) {
+        User loginUser = getCurrentUser();
+
+        if (loginUser != null && loginUser.getRole() != null
+                && loginUser.getRole().getRoleEnums() == RoleEnums.PARTNER) {
+            if (Strings.isNotEmpty(request.getShopId())) {
+                return shopRegistrationRepository.findByIdAndUser_Id(request.getShopId(), loginUser.getId()).orElse(null);
+            }
+            return shopRegistrationRepository.findFirstByUser_IdOrderByCreatedAtDesc(loginUser.getId()).orElse(null);
+        }
+        if (Strings.isNotEmpty(request.getShopId())) {
+            return shopRegistrationRepository.findById(request.getShopId()).orElse(null);
+        }
+        if (Strings.isNotEmpty(request.getUserId())) {
+            return shopRegistrationRepository.findFirstByUser_IdOrderByCreatedAtDesc(request.getUserId()).orElse(null);
+        }
+        if (loginUser != null) {
+            return shopRegistrationRepository.findFirstByUser_IdOrderByCreatedAtDesc(loginUser.getId()).orElse(null);
+        }
+        return null;
+    }
+
+
+    private CommonResponse validatePartnerAccess() {
+        User loginUser = getCurrentUser();
+        if (loginUser == null || loginUser.getRole() == null
+                || loginUser.getRole().getRoleEnums() != RoleEnums.PARTNER) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Chỉ tài khoản PARTNER mới được quản lý sản phẩm")
+                    .build();
+        }
+        return null;
     }
 }

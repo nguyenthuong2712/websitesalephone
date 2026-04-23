@@ -17,6 +17,9 @@ import org.example.websitesalephone.repository.ShopRegistrationRepository;
 import org.example.websitesalephone.repository.UserRepository;
 import org.example.websitesalephone.service.shop.ShopService;
 import org.springframework.stereotype.Service;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -47,17 +50,35 @@ public class ShopServiceImpl implements ShopService {
                                        MultipartFile cccdImage) {
         try {
             ShopRegisterRequest request = objectMapper.readValue(requestJson, ShopRegisterRequest.class);
-            if (Strings.isBlank(request.getUsername()) || Strings.isBlank(request.getShopName())) {
+            if (Strings.isBlank(request.getShopName())) {
                 return CommonResponse.builder()
                         .code(CommonResponse.CODE_BUSINESS)
-                        .message("Username và tên shop là bắt buộc")
+                        .message("Tên shop là bắt buộc")
                         .build();
             }
 
-            User user = userRepository.findByUsernameAndIsDeleted(request.getUsername(), false).orElse(null);
+            String usernameToRegister = request.getUsername();
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) {
+                usernameToRegister = auth.getName();
+                if (Strings.isNotBlank(request.getUsername()) && !request.getUsername().equals(auth.getName())) {
+                    return CommonResponse.builder()
+                            .code(CommonResponse.CODE_BUSINESS)
+                            .message("Bạn chỉ có thể đăng ký shop cho chính tài khoản đang đăng nhập")
+                            .build();
+                }
+            }
+            if (Strings.isBlank(usernameToRegister)) {
+                return CommonResponse.builder()
+                        .code(CommonResponse.CODE_BUSINESS)
+                        .message("Username là bắt buộc khi chưa đăng nhập")
+                        .build();
+            }
+
+            User user = userRepository.findByUsernameAndIsDeleted(usernameToRegister, false).orElse(null);
             if (user == null) {
                 return CommonResponse.builder()
-                        .code(CommonResponse.CODE_NOT_FOUND)
+                    .code(CommonResponse.CODE_NOT_FOUND)
                         .message("Không tìm thấy user")
                         .build();
             }
