@@ -59,6 +59,20 @@ public class ProductController {
         return productService.detail(productDetailRequest);
     }
 
+    @GetMapping("detail")
+    public CommonResponse detailById(@RequestParam(name = "idProduct", required = false) String idProduct) {
+        if (idProduct == null || idProduct.trim().isEmpty()) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("idProduct is required")
+                    .build();
+        }
+
+        ProductDetailRequest request = new ProductDetailRequest();
+        request.setIdProduct(idProduct);
+        return productService.detail(request);
+    }
+
     @PostMapping("get-quantity")
     public CommonResponse getQuantity(@RequestBody CreateCartRequest createCartRequest) {
         return productService.getQuantity(createCartRequest);

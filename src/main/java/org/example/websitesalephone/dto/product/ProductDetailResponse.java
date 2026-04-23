@@ -46,12 +46,9 @@ public class ProductDetailResponse {
                 .id(product.getId())
                 .productName(product.getName())
                 .description(product.getDescription())
-<<<<<<< HEAD
-=======
                 .location(product.getLocation())
                 .storage(product.getStorage())
                 .deviceMake(product.getDeviceMake())
->>>>>>> 1d76e44b235912cf67ad442354bfd953a2b5a19f
                 .price(variant.getPrice())
                 .responseList(responseList.isEmpty() ? null : responseList)
                 .colors(removeDuplicate(productVariants.stream()

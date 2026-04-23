@@ -62,11 +62,11 @@ public class ShopServiceImpl implements ShopService {
                         .build();
             }
 
-            Role partnerRole = roleRepository.findById(RoleEnums.PARTNER.getId()).orElse(null);
-            if (partnerRole == null) {
+            Role staffRole = roleRepository.findById(RoleEnums.STAFF.getId()).orElse(null);
+            if (staffRole == null) {
                 return CommonResponse.builder()
                         .code(CommonResponse.CODE_NOT_FOUND)
-                        .message("Role PARTNER chưa tồn tại")
+                        .message("Role STAFF chưa tồn tại")
                         .build();
             }
 
@@ -98,7 +98,7 @@ public class ShopServiceImpl implements ShopService {
             registration.setPaymentMethods(methods);
             shopRegistrationRepository.saveAndFlush(registration);
 
-            user.setRole(partnerRole);
+            user.setRole(staffRole);
             userRepository.saveAndFlush(user);
 
             return CommonResponse.builder()
