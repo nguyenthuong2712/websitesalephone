@@ -606,11 +606,18 @@ public class ProductServiceImpl implements ProductService {
         product.setDeviceMake(productRequest.getDeviceMake());
         product.setStatus(ProductStatus.ACTIVE);
         product.setShopRegistration(shopRegistration);
-        productRepository.save(product);
+        productRepository.saveAndFlush(product);
+
+        Map<String, String> responseData = new HashMap<>();
+        responseData.put("id", product.getId());
+        responseData.put("name", product.getName());
+        responseData.put("description", product.getDescription());
+
         return CommonResponse
                 .builder()
-                .data(product)
+                .data(responseData)
                 .code(CommonResponse.CODE_SUCCESS)
+                .message("Tạo sản phẩm thành công")
                 .build();
     }
 

@@ -23,7 +23,7 @@ public class Product extends BaseEntity{
     @Column(name = "name", columnDefinition = "NVARCHAR(255) COLLATE Vietnamese_CI_AS")
     private String name;
 
-    @Column(name = "description", columnDefinition = "NVARCHAR(255) COLLATE Vietnamese_CI_AS")
+    @Column(name = "description", columnDefinition = "NVARCHAR(MAX) COLLATE Vietnamese_CI_AS")
     private String description;
 
     @Column(name = "location", columnDefinition = "NVARCHAR(255) COLLATE Vietnamese_CI_AS")
