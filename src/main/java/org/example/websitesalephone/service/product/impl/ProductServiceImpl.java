@@ -4,10 +4,12 @@ import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.util.Strings;
 import org.example.websitesalephone.comon.PageResponse;
+import org.example.websitesalephone.auth.UserDetail;
 import org.example.websitesalephone.dto.dynamic.CreateCartRequest;
 import org.example.websitesalephone.dto.product.*;
 import org.example.websitesalephone.entity.*;
 import org.example.websitesalephone.enums.ProductStatus;
+import org.example.websitesalephone.enums.RoleEnums;
 import org.example.websitesalephone.repository.*;
 import org.example.websitesalephone.service.product.ProductService;
 import org.example.websitesalephone.comon.CommonResponse;
@@ -15,6 +17,8 @@ import org.example.websitesalephone.utils.Utils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,8 +50,12 @@ public class ProductServiceImpl implements ProductService {
 
     private final OrderItemRepository orderItemRepository;
 
+    private final UserRepository userRepository;
+
     @Override
     public CommonResponse getALl(ProductSearch productSearch) {
+
+        UserDetail currentUserDetail = resolveCurrentUserDetail();
 
         PageRequest pageRequest = Utils.getPaging(productSearch);
 
@@ -60,6 +68,10 @@ public class ProductServiceImpl implements ProductService {
             }
 
             predicates.add(cb.isNotEmpty(root.get("variants")));
+
+            if (currentUserDetail != null && RoleEnums.STAFF.getValue().equalsIgnoreCase(currentUserDetail.getRole())) {
+                predicates.add(cb.equal(root.get("createdBy").get("id"), currentUserDetail.getUserId()));
+            }
 
             Objects.requireNonNull(query).orderBy(cb.desc(root.get("createdAt")));
 
@@ -439,6 +451,7 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse createdProduct(ProductRequest productRequest) {
         Product product = new Product();
+        UserDetail currentUserDetail = resolveCurrentUserDetail();
         product.setId(UUID.randomUUID().toString());
         product.setName(productRequest.getName());
         product.setDescription(productRequest.getDescription());
@@ -446,6 +459,12 @@ public class ProductServiceImpl implements ProductService {
         product.setStorage(productRequest.getStorage());
         product.setDeviceMake(productRequest.getDeviceMake());
         product.setStatus(ProductStatus.ACTIVE);
+
+        if (currentUserDetail != null) {
+            User createdBy = userRepository.findById(currentUserDetail.getUserId()).orElse(null);
+            product.setCreatedBy(createdBy);
+        }
+
         productRepository.save(product);
         return CommonResponse
                 .builder()
@@ -487,5 +506,13 @@ public class ProductServiceImpl implements ProductService {
                 .code(CommonResponse.CODE_SUCCESS)
                 .message("Đã xóa hẳn sản phẩm")
                 .build();
+    }
+
+    private UserDetail resolveCurrentUserDetail() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof UserDetail userDetail)) {
+            return null;
+        }
+        return userDetail;
     }
 }

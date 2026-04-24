@@ -44,15 +44,19 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse addToCart(CartRequest request) {
+        if (request == null || request.getQuantity() <= 0 || request.getProductId() == null || request.getProductId().trim().isEmpty()) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Dữ liệu giỏ hàng không hợp lệ")
+                    .build();
+        }
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        UserDetail userDetail = (UserDetail) auth.getPrincipal();
-        User user = userRepository.findByUsernameAndIsDeleted(userDetail.getLoginId(), false).orElse(null);
+        User user = resolveCurrentUser();
 
         if (user == null) {
             return CommonResponse.builder()
-                    .code(CommonResponse.CODE_SUCCESS)
-                    .message("Thêm sản phẩm vào giỏ hàng không thành công")
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng")
                     .build();
         }
 
@@ -61,38 +65,52 @@ public class CartServiceImpl implements CartService {
 
         if (product == null) {
             return CommonResponse.builder()
-                    .code(CommonResponse.CODE_SUCCESS)
-                    .message("Thêm sản phẩm vào giỏ hàng không thành công")
+                    .code(CommonResponse.CODE_NOT_FOUND)
+                    .message("Sản phẩm không tồn tại")
                     .build();
         }
 
-        Cart cart = cartRepository.findByUserId(user.getId()).orElse(null);
+        Cart cart = resolveOrCreateCart(user);
 
-        if (cart == null) {
-            return CommonResponse.builder()
-                    .code(CommonResponse.CODE_SUCCESS)
-                    .message("Thêm sản phẩm vào giỏ hàng không thành công")
-                    .build();
+        if (cart.getCartItems() == null) {
+            cart.setCartItems(new ArrayList<>());
         }
 
         Optional<CartItem> existingItemOpt = cart.getCartItems().stream()
+                .filter(item -> item.getProductVariant() != null)
+                .filter(item -> item.getProductVariant().getId().equals(product.getId()))
                 .filter(i -> !i.isDeleted())
+                .filter(i -> CartStatus.ACTIVE.getCode().equalsIgnoreCase(i.getStatus()))
                 .findFirst();
 
         if (existingItemOpt.isPresent()) {
             CartItem existingItem = existingItemOpt.get();
-            existingItem.setQuantity(existingItem.getQuantity() + request.getQuantity());
+            int nextQuantity = existingItem.getQuantity() + request.getQuantity();
+            if (nextQuantity > product.getQuantity()) {
+                return CommonResponse.builder()
+                        .code(CommonResponse.CODE_BUSINESS)
+                        .message("Số lượng sản phẩm không đủ trong kho")
+                        .build();
+            }
+
+            existingItem.setQuantity(nextQuantity);
+            existingItem.setAmount(calculateAmount(product, nextQuantity));
+            cartItemRepository.saveAndFlush(existingItem);
         } else {
+            if (request.getQuantity() > product.getQuantity()) {
+                return CommonResponse.builder()
+                        .code(CommonResponse.CODE_BUSINESS)
+                        .message("Số lượng sản phẩm không đủ trong kho")
+                        .build();
+            }
+
             CartItem newItem = new CartItem();
             newItem.setId(UUID.randomUUID().toString());
             newItem.setCart(cart);
             newItem.setProductVariant(product);
             newItem.setQuantity(request.getQuantity());
             newItem.setStatus(CartStatus.ACTIVE.getCode());
-
-            BigDecimal price = product.getPrice();
-            BigDecimal quantity = BigDecimal.valueOf(request.getQuantity());
-            newItem.setAmount(price.multiply(quantity));
+            newItem.setAmount(calculateAmount(product, request.getQuantity()));
             cart.getCartItems().add(newItem);
             cartItemRepository.saveAndFlush(newItem);
         }
@@ -106,11 +124,34 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse updateCartItem(CartRequest request) {
+        if (request == null || request.getIdCartItem() == null || request.getIdCartItem().trim().isEmpty()) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Dữ liệu cập nhật giỏ hàng không hợp lệ")
+                    .build();
+        }
+
+        User user = resolveCurrentUser();
+        if (user == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập để cập nhật giỏ hàng")
+                    .build();
+        }
+
         CartItem item = cartItemRepository.findById(request.getIdCartItem()).orElse(null);
 
         if (item == null) {
             return CommonResponse.builder()
-                    .code(CommonResponse.CODE_SUCCESS)
+                    .code(CommonResponse.CODE_NOT_FOUND)
+                    .message("Sản phẩm trong giỏ hàng không tồn tại")
+                    .build();
+        }
+
+        if (item.getCart() == null || item.getCart().getUser() == null || !user.getId().equals(item.getCart().getUser().getId())) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Bạn không có quyền cập nhật sản phẩm này")
                     .build();
         }
 
@@ -119,7 +160,8 @@ public class CartServiceImpl implements CartService {
 
         if (product == null) {
             return CommonResponse.builder()
-                    .code(CommonResponse.CODE_SUCCESS)
+                    .code(CommonResponse.CODE_NOT_FOUND)
+                    .message("Sản phẩm không tồn tại")
                     .build();
         }
 
@@ -140,6 +182,7 @@ public class CartServiceImpl implements CartService {
                     .build();
         } else {
             item.setQuantity(request.getQuantity());
+            item.setAmount(calculateAmount(product, request.getQuantity()));
             cartItemRepository.saveAndFlush(item);
         }
         return CommonResponse.builder()
@@ -151,11 +194,13 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional(readOnly = true)
     public CommonResponse getCartItems(CartSearch search) {
-
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        UserDetail userDetail = (UserDetail) auth.getPrincipal();
-        User user = userRepository.findByUsernameAndIsDeleted(userDetail.getLoginId(), false)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = resolveCurrentUser();
+        if (user == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập để xem giỏ hàng")
+                    .build();
+        }
 
         Cart cart = cartRepository.findByUserId(user.getId())
                 .orElse(null);
@@ -180,10 +225,13 @@ public class CartServiceImpl implements CartService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse checkoutCart(CheckOutRequest checkOutRequest) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        UserDetail userDetail = (UserDetail) auth.getPrincipal();
-        User user = userRepository.findByUsernameAndIsDeleted(userDetail.getLoginId(), false)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = resolveCurrentUser();
+        if (user == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập để thanh toán")
+                    .build();
+        }
 
         Cart cart = cartRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new RuntimeException("Giỏ hàng trống"));
@@ -246,6 +294,32 @@ public class CartServiceImpl implements CartService {
                 .message("Thanh toán thành công")
                 .data(order)
                 .build();
+    }
+
+    private User resolveCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof UserDetail userDetail)) {
+            return null;
+        }
+
+        return userRepository.findByUsernameAndIsDeleted(userDetail.getLoginId(), false).orElse(null);
+    }
+
+    private Cart resolveOrCreateCart(User user) {
+        Cart cart = cartRepository.findByUserId(user.getId()).orElse(null);
+        if (cart != null) {
+            return cart;
+        }
+
+        Cart newCart = new Cart();
+        newCart.setId(UUID.randomUUID().toString());
+        newCart.setUser(user);
+        newCart.setCartItems(new ArrayList<>());
+        return cartRepository.saveAndFlush(newCart);
+    }
+
+    private BigDecimal calculateAmount(ProductVariant productVariant, int quantity) {
+        return productVariant.getPrice().multiply(BigDecimal.valueOf(quantity));
     }
 
 }

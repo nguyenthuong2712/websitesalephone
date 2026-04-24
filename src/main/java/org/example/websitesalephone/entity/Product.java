@@ -39,6 +39,10 @@ public class Product extends BaseEntity{
     @Column(length = 50)
     private ProductStatus status;
 
+    @ManyToOne
+    @JoinColumn(name = "created_by_user_id")
+    private User createdBy;
+
     @OneToMany(mappedBy = "product")
     private List<ProductVariant> variants;
 
