@@ -5,11 +5,9 @@ import lombok.Getter;
 import org.example.websitesalephone.entity.*;
 import org.example.websitesalephone.enums.CartStatus;
 
-import java.awt.*;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 @Getter
 @Builder
@@ -49,10 +47,12 @@ public class CartResponse {
                 .toList();
 
         int totalQuantity = cart.getCartItems().stream()
+                .filter(item -> !item.isDeleted() && item.getStatus().equalsIgnoreCase(CartStatus.ACTIVE.getCode()))
                 .mapToInt(CartItem::getQuantity)
                 .sum();
 
         BigDecimal total = cart.getCartItems().stream()
+                .filter(item -> !item.isDeleted() && item.getStatus().equalsIgnoreCase(CartStatus.ACTIVE.getCode()))
                 .map(item -> item.getProductVariant().getPrice()
                         .multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

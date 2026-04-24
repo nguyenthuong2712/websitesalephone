@@ -33,9 +33,12 @@ public class SecurityConfig {
                     httpSecurityCorsConfigurer.configurationSource(corsConfigurationSource());
                 })
                 .authorizeHttpRequests(auth -> auth.requestMatchers(
+                                "/api/cart/**")
+                        .authenticated()
+                        .requestMatchers(
+                                "/error",
                                 "/api/auth/**",
                                 "/api/product/**",
-                                "/api/cart/**",
                                 "/api/dynamic/**",
                                 "/api/user/**",
                                 "/api/product-images/**",

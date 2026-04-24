@@ -53,6 +53,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public CommonResponse getALl(ProductSearch productSearch) {
+        User loginUser = getCurrentUser();
 
         PageRequest pageRequest = Utils.getPaging(productSearch);
 
@@ -72,9 +73,7 @@ public class ProductServiceImpl implements ProductService {
                 predicates.add(cb.equal(root.get("shopRegistration").get("user").get("id"), productSearch.getUserId()));
             }
 
-            User loginUser = getCurrentUser();
-            if (loginUser != null && loginUser.getRole() != null
-                    && loginUser.getRole().getRoleEnums() == RoleEnums.PARTNER) {
+            if (isStaff(loginUser)) {
                 predicates.add(cb.equal(root.get("shopRegistration").get("user").get("id"), loginUser.getId()));
             }
 
@@ -97,9 +96,9 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public CommonResponse createdProductDetail(ProductDetailRequest productRequest) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         Product product = productRepository.findById(productRequest.getIdProduct()).orElse(null);
@@ -200,9 +199,9 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public CommonResponse updated(ProductDetailRequest productDetailRequest) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         Product product = productRepository.findById(productDetailRequest.getIdProduct()).orElse(null);
@@ -283,9 +282,9 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public CommonResponse deleted(String id) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         Product product = productRepository.findById(id).orElse(null);
@@ -340,9 +339,9 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(rollbackFor = Exception.class)
     @Override
     public CommonResponse createImage(ProductImageRequest productImageRequest) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         Product product = productRepository.findById(productImageRequest.getProductId()).orElse(null);
@@ -375,9 +374,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public CommonResponse getAllImage(String productId) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         Product product = productRepository.findById(productId).orElse(null);
@@ -411,9 +410,9 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse updateImage(ProductImageRequest productImageRequest) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         ProductImage findByActive = productImageRepository.findByActiveAndId(true, productImageRequest.getProductImageId());
@@ -451,9 +450,9 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse deletedProductDetail(String id) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         ProductVariant productVariant = productVariantRepository.findById(id).orElse(null);
@@ -480,9 +479,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public CommonResponse getAllProductVariant(String productId) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         Product product = productRepository.findById(productId).orElse(null);
@@ -518,9 +517,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public CommonResponse getProductVariantDetail(String productVariantId) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         ProductVariant productVariant = productVariantRepository.findById(productVariantId).orElse(null);
@@ -545,9 +544,9 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse deletedImage(String idImage) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         ProductImage productImage = productImageRepository.findById(idImage).orElse(null);
@@ -585,17 +584,15 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse createdProduct(ProductRequest productRequest) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         Product product = new Product();
         ShopRegistration shopRegistration = resolveShopRegistration(productRequest);
         User loginUser = getCurrentUser();
-        if (loginUser != null && loginUser.getRole() != null
-                && loginUser.getRole().getRoleEnums() == RoleEnums.PARTNER
-                && shopRegistration == null) {
+        if (isStaff(loginUser) && shopRegistration == null) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_BUSINESS)
                     .message("Bạn cần đăng ký shop trước khi tạo sản phẩm")
@@ -620,9 +617,9 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse hardDelete(String id) {
-        CommonResponse partnerAccess = validatePartnerAccess();
-        if (partnerAccess != null) {
-            return partnerAccess;
+        CommonResponse staffAccess = validateStaffAccess();
+        if (staffAccess != null) {
+            return staffAccess;
         }
 
         Product product = productRepository.findById(id).orElse(null);
@@ -677,9 +674,15 @@ public class ProductServiceImpl implements ProductService {
         if (loginUser == null || loginUser.getRole() == null) {
             return true;
         }
-        if (loginUser.getRole().getRoleEnums() != RoleEnums.PARTNER) {
+
+        if (isAdmin(loginUser)) {
             return true;
         }
+
+        if (!isStaff(loginUser)) {
+            return false;
+        }
+
         return product.getShopRegistration() != null
                 && product.getShopRegistration().getUser() != null
                 && Objects.equals(product.getShopRegistration().getUser().getId(), loginUser.getId());
@@ -688,8 +691,7 @@ public class ProductServiceImpl implements ProductService {
     private ShopRegistration resolveShopRegistration(ProductRequest request) {
         User loginUser = getCurrentUser();
 
-        if (loginUser != null && loginUser.getRole() != null
-                && loginUser.getRole().getRoleEnums() == RoleEnums.PARTNER) {
+        if (isStaff(loginUser)) {
             if (Strings.isNotEmpty(request.getShopId())) {
                 return shopRegistrationRepository.findByIdAndUser_Id(request.getShopId(), loginUser.getId()).orElse(null);
             }
@@ -708,15 +710,26 @@ public class ProductServiceImpl implements ProductService {
     }
 
 
-    private CommonResponse validatePartnerAccess() {
+    private CommonResponse validateStaffAccess() {
         User loginUser = getCurrentUser();
-        if (loginUser == null || loginUser.getRole() == null
-                || loginUser.getRole().getRoleEnums() != RoleEnums.PARTNER) {
+        if (loginUser == null || loginUser.getRole() == null || (!isAdmin(loginUser) && !isStaff(loginUser))) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_BUSINESS)
-                    .message("Chỉ tài khoản PARTNER mới được quản lý sản phẩm")
+                    .message("Chỉ tài khoản STAFF hoặc ADMIN mới được quản lý sản phẩm")
                     .build();
         }
         return null;
+    }
+
+    private boolean isStaff(User user) {
+        return user != null
+                && user.getRole() != null
+                && user.getRole().getRoleEnums() == RoleEnums.STAFF;
+    }
+
+    private boolean isAdmin(User user) {
+        return user != null
+                && user.getRole() != null
+                && user.getRole().getRoleEnums() == RoleEnums.ADMIN;
     }
 }
