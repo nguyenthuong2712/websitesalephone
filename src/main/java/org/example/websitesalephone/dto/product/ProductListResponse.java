@@ -37,6 +37,9 @@ public class ProductListResponse {
     private int quantity;
 
     private String status;
+    private String shopId;
+    private String shopName;
+    private String shopOwnerId;
 
     private List<ProductImageResponse> responseList;
 
@@ -77,6 +80,9 @@ public class ProductListResponse {
                 .quantity(totalQuantity)
                 .quantityUnitSold(totalQuantitySold)
                 .status(entity.getStatus().getCode())
+                .shopId(entity.getShopRegistration() == null ? null : entity.getShopRegistration().getId())
+                .shopName(entity.getShopRegistration() == null ? null : entity.getShopRegistration().getShopName())
+                .shopOwnerId(entity.getShopRegistration() == null ? null : entity.getShopRegistration().getUser().getId())
                 .build();
     }
 }

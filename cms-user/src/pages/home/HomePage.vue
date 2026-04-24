@@ -2,7 +2,7 @@
 import HomeLayout from "../../layout/Header.vue";
 import Footer from "../../layout/Footer.vue";
 import {productService} from "@/service/ProductService.ts";
-import {onMounted, ref} from "vue";
+import {onBeforeUnmount, onMounted, ref} from "vue";
 import {formatCurrency} from "../../utils/Constant.ts";
 const products = ref<any[]>([]);
 
@@ -10,12 +10,25 @@ const loadProducts = async () => {
   try {
     const res = await productService.getAllNewProduct();
     products.value = res.data.data || [];
-    console.log("📄 Fetched page:", page.value, "totalPages:", totalPages.value);
   } catch (error) {
     console.error("Lỗi khi load sản phẩm:", error);
   }
 };
-onMounted(loadProducts);
+
+const handleVisibilityChange = () => {
+  if (document.visibilityState === "visible") {
+    loadProducts();
+  }
+};
+
+onMounted(() => {
+  loadProducts();
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
+});
 
 </script>
 

@@ -9,5 +9,7 @@ import org.example.websitesalephone.comon.PagingRequest;
 public class ProductSearch  extends PagingRequest {
 
     private String searchText;
+    private String shopId;
+    private String userId;
 
 }

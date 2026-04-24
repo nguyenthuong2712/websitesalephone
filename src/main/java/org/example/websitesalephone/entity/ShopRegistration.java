@@ -46,4 +46,7 @@ public class ShopRegistration extends BaseEntity {
 
     @OneToMany(mappedBy = "shopRegistration", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ShopPaymentMethod> paymentMethods;
+
+    @OneToMany(mappedBy = "shopRegistration")
+    private List<Product> products;
 }

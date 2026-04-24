@@ -10,4 +10,6 @@ public class ProductRequest {
     private String location;
     private String storage;
     private String deviceMake;
+    private String shopId;
+    private String userId;
 }
