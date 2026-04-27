@@ -7,10 +7,8 @@ import org.example.websitesalephone.comon.PageResponse;
 import org.example.websitesalephone.dto.order.*;
 import org.example.websitesalephone.entity.Order;
 import org.example.websitesalephone.entity.OrderStatusHistory;
-import org.example.websitesalephone.entity.Product;
 import org.example.websitesalephone.entity.User;
 import org.example.websitesalephone.enums.OrderStatus;
-import org.example.websitesalephone.enums.ProductStatus;
 import org.example.websitesalephone.enums.RoleEnums;
 import org.example.websitesalephone.repository.OrderRepository;
 import org.example.websitesalephone.repository.OrderStatusHistoryRepository;
@@ -51,10 +49,18 @@ public class OrderServiceImpl implements OrderService {
         PageRequest pageRequest = Utils.getPaging(searchForm);
 
         Specification<Order> spec = OrderSpecification.search(searchForm);
+        User loginUser = getCurrentUser();
+        String sellerId = null;
 
+        if (isStaff(loginUser)) {
+            sellerId = loginUser.getId();
+            spec = spec.and(sellerOrderScope(sellerId));
+        }
+
+        final String scopedSellerId = sellerId;
         Page<OrderResponse> result = orderRepository
                 .findAll(spec, pageRequest)
-                .map(OrderResponse::fromOrder);
+                .map(order -> scopedSellerId == null ? OrderResponse.fromOrder(order) : OrderResponse.fromSellerOrder(order, scopedSellerId));
 
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
@@ -187,11 +193,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public CommonResponse countOrderByStaff(CountOrderRequest req) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        UserDetail userDetail = (UserDetail) auth.getPrincipal();
-
-        User loginUser = userRepository.findByUsernameAndIsDeleted(userDetail.getLoginId(), false)
-                .orElse(null);
+        User loginUser = getCurrentUser();
 
         if (loginUser == null) {
             return CommonResponse.builder()
@@ -201,11 +203,12 @@ public class OrderServiceImpl implements OrderService {
         }
 
         boolean isAdmin = loginUser.getRole().getRoleEnums() == RoleEnums.ADMIN;
-        boolean isAll = "ALL".equals(req.getStatus());
+        String status = req.getStatus() == null ? "ALL" : req.getStatus();
+        boolean isAll = "ALL".equals(status);
 
         if (isAdmin) {
             int total = orderRepository.countAllByIsDeletedFalse();
-            int byStatus = orderRepository.countByStatus(req.getStatus());
+            int byStatus = orderRepository.countByStatus(status);
 
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_SUCCESS)
@@ -213,47 +216,86 @@ public class OrderServiceImpl implements OrderService {
                     .build();
         }
 
-        // Staff
-        int totalByStaff = orderRepository.countByStaff_Id(loginUser.getId());
-        int byStatusAndStaff = orderRepository.countByStatusAndStaff_Id(req.getStatus(), loginUser.getId());
+        int totalBySeller = orderRepository.countBySellerIdAndStatus(loginUser.getId(), "ALL");
+        int byStatusAndSeller = orderRepository.countBySellerIdAndStatus(loginUser.getId(), status);
 
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
-                .data(isAll ? totalByStaff : byStatusAndStaff)
+                .data(isAll ? totalBySeller : byStatusAndSeller)
                 .build();
     }
 
     @Override
-        public CommonResponse countDashBoard(String searchText) {
+    public CommonResponse countDashBoard(String searchText) {
+        User loginUser = getCurrentUser();
         Object result;
 
-        switch (searchText) {
-            case "PRODUCT" -> {
-                result = productRepository.countByVariantsIsNotEmpty();
+        if (isStaff(loginUser)) {
+            switch (searchText) {
+                case "PRODUCT" -> result = productRepository.countSellableProductsBySellerId(loginUser.getId());
+                case "ORDER" -> result = orderRepository.countBySellerIdAndStatus(loginUser.getId(), "ALL");
+                case "CUSTOMER" -> result = 0;
+                case "CANCELLED" -> result = orderRepository.countBySellerIdAndStatus(loginUser.getId(), "CANCELLED");
+                case "REVENUE" -> result = orderRepository.getRevenueBySellerId(loginUser.getId());
+                default -> {
+                    return dashboardMetricNotFound();
+                }
             }
-            case "ORDER" -> {
-                result = orderRepository.countAllByIsDeletedFalse();
-            }
-            case "CUSTOMER" -> {
-                result = userRepository.countByIsDeletedFalse();
-            }
-            case "CANCELLED" -> {
-                result = orderRepository.countByStatus("CANCELLED");
-            }
-            case "REVENUE" -> {
-                result = orderRepository.getRevenueByStatus();
-            }
-            default -> {
-                return CommonResponse.builder()
-                        .code(CommonResponse.CODE_NOT_FOUND)
-                        .message("Loại thống kê không tồn tại")
-                        .build();
+        } else {
+            switch (searchText) {
+                case "PRODUCT" -> result = productRepository.countByVariantsIsNotEmpty();
+                case "ORDER" -> result = orderRepository.countAllByIsDeletedFalse();
+                case "CUSTOMER" -> result = userRepository.countByIsDeletedFalse();
+                case "CANCELLED" -> result = orderRepository.countByStatus("CANCELLED");
+                case "REVENUE" -> result = orderRepository.getRevenueByStatus();
+                default -> {
+                    return dashboardMetricNotFound();
+                }
             }
         }
 
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
                 .data(result)
+                .build();
+    }
+
+    private User getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof UserDetail userDetail)) {
+            return null;
+        }
+
+        return userRepository.findByUsernameAndIsDeleted(userDetail.getLoginId(), false).orElse(null);
+    }
+
+    private boolean isStaff(User user) {
+        return user != null
+                && user.getRole() != null
+                && user.getRole().getRoleEnums() == RoleEnums.STAFF;
+    }
+
+    private Specification<Order> sellerOrderScope(String sellerId) {
+        return (root, query, cb) -> {
+            if (query != null) {
+                query.distinct(true);
+            }
+            return cb.equal(
+                    root.join("orderItems")
+                            .join("productVariant")
+                            .join("product")
+                            .join("shopRegistration")
+                            .join("user")
+                            .get("id"),
+                    sellerId
+            );
+        };
+    }
+
+    private CommonResponse dashboardMetricNotFound() {
+        return CommonResponse.builder()
+                .code(CommonResponse.CODE_NOT_FOUND)
+                .message("Loại thống kê không tồn tại")
                 .build();
     }
 }
