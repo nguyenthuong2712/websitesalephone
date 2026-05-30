@@ -7,6 +7,22 @@ import type {CartResponse, ProductInCart} from "@/models/Cart.ts";
 import {CartRequest} from "@/models/CartRequest.ts";
 import {toast} from "vue3-toastify";
 import {CheckOutRequest} from "@/models/CheckOutRequest.ts";
+import {
+  ShoppingCart,
+  ShoppingBag,
+  MapPin,
+  Receipt,
+  Lock,
+  Truck,
+  ShieldCheck,
+  RotateCcw,
+  Award,
+  Headphones,
+  ArrowLeft,
+  Trash2,
+  Plus,
+  Minus
+} from "@lucide/vue";
 
 type CartItemWithSelect = ProductInCart & { selected: boolean };
 const cartItems = ref<CartItemWithSelect[]>([]);
@@ -104,747 +120,1014 @@ const checkout = async () => {
   }
 };
 
-function getContrastColor(hex: string): string {
-  if (!hex) return "#000";
-  // Loại bỏ #
-  const c = hex.startsWith("#") ? hex.substring(1) : hex;
-  // Chuyển sang RGB
-  const r = parseInt(c.substr(0, 2), 16);
-  const g = parseInt(c.substr(2, 2), 16);
-  const b = parseInt(c.substr(4, 2), 16);
-  // Tính độ sáng
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  return brightness > 125 ? "#000" : "#fff";
-}
-
 function isDisable(): boolean{
   if (cartItems.value.length === 0) return true;
   return address.value === null || address.value === '' || address.value === undefined;
-
 }
 </script>
 
 <template>
   <HomeLayout/>
-  <div class="container">
-    <header class="cart-header">
-      <div class="header-left">
-        <h1>🛒 Giỏ Hàng Của Bạn</h1>
-        <div class="breadcrumb">
-          <router-link to="/customer/product-home">Sản Phẩm</router-link>
-          / Giỏ hàng
-        </div>
-      </div>
-      <div class="header-right">
-        <div class="cart-count">{{ totalQuantity }}</div>
-        <div class="cart-count-label">Sản phẩm</div>
-      </div>
-    </header>
-
-    <div class="cart-grid">
-      <section class="cart-items">
-        <div class="cart-items-header">
-          <h2 class="cart-items-title">📦 Sản Phẩm Trong Giỏ</h2>
-          <label class="select-all">
-            <input type="checkbox" v-model="allSelected"/> Chọn tất cả
-          </label>
-        </div>
-
-        <article class="cart-item" v-for="item in cartItems" :key="item.productId">
-          <div class="item-select">
-            <input type="checkbox" v-model="item.selected"/>
+  <div class="cart-page-wrapper">
+    <div class="container">
+      
+      <!-- Cart Header -->
+      <header class="cart-header-alt">
+        <div class="header-left-alt">
+          <div class="header-icon-circle">
+            <ShoppingCart :size="24" />
           </div>
-          <div class="item-image">
-            <img :src="item.image || '/placeholder.png'" alt="product"/>
-          </div>
-          <div class="item-details">
-            <h3 class="item-name">{{ item.productName }}</h3>
-            <div class="item-specs">
-              <span class="spec-badge">{{ item.ram }}</span>
-              <span
-                  class="spec-badge"
-                  :style="{ backgroundColor: item.color, color: getContrastColor(item.color) }"
-              ></span>
-              <span class="spec-badge">{{ item.origin }}</span>
+          <div class="header-titles">
+            <h1 class="cart-title-alt">Giỏ Hàng Của Bạn</h1>
+            <div class="breadcrumb-alt">
+              <router-link to="/customer/product-home" class="breadcrumb-link">Sản phẩm</router-link>
+              <span class="breadcrumb-separator">/</span>
+              <span class="breadcrumb-current">Giỏ hàng</span>
             </div>
-            <div class="item-price">{{ Number(item.price).toLocaleString('vi-VN') }}₫</div>
-            <div class="item-controls">
-              <div class="quantity-control">
-                <button class="qty-btn" @click="decreaseQty(item)">−</button>
-                <input type="text" class="qty-input" :value="item.quantity" readonly/>
-                <button class="qty-btn" @click="increaseQty(item)">+</button>
+          </div>
+        </div>
+        <div class="header-right-alt">
+          <div class="cart-summary-badge">
+            <ShoppingBag :size="16" />
+            <span>{{ totalQuantity }} sản phẩm</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Cart Grid -->
+      <div class="cart-grid-alt">
+        
+        <!-- Left Column: Products List / Empty State -->
+        <div class="cart-main-col">
+          <div class="cart-card-alt">
+            <div class="cart-card-header">
+              <div class="header-title-group">
+                <ShoppingBag :size="20" class="header-icon-purple" />
+                <h2 class="card-title-text">Sản phẩm trong giỏ</h2>
               </div>
-              <button class="btn-remove" @click="removeItem(item)">🗑️ Xóa</button>
+              <label class="select-all-checkbox-label" v-if="cartItems.length > 0">
+                <input type="checkbox" v-model="allSelected" class="custom-checkbox" />
+                <span>Chọn tất cả</span>
+              </label>
+            </div>
+
+            <!-- Empty Cart State -->
+            <div class="empty-cart-state" v-if="cartItems.length === 0">
+              <div class="empty-illustration-container">
+                <svg width="200" height="200" viewBox="0 0 240 240" fill="none" class="empty-cart-svg">
+                  <circle cx="120" cy="120" r="90" fill="#f3effc" />
+                  <circle cx="120" cy="120" r="60" fill="#e8dcfa" />
+                  
+                  <path d="M60 70 L64 74 L60 78 L56 74 Z" fill="#c084fc" />
+                  <path d="M180 60 L183 63 L180 66 L177 63 Z" fill="#c084fc" />
+                  <path d="M195 130 L198 133 L195 136 L192 133 Z" fill="#c084fc" />
+                  
+                  <!-- Phone standing tilted in cart -->
+                  <g transform="translate(95, 52) rotate(-12)">
+                    <rect width="56" height="105" rx="8" fill="#7c3aed" />
+                    <rect x="3" y="3" width="50" height="99" rx="6" fill="#a78bfa" />
+                    <!-- Camera -->
+                    <rect x="7" y="7" width="15" height="15" rx="3" fill="#6d28d9" />
+                    <circle cx="11" cy="11" r="2" fill="#fff" />
+                    <circle cx="18" cy="11" r="1.5" fill="#fff" />
+                    <circle cx="11" cy="18" r="1.5" fill="#fff" />
+                    <!-- Screen reflection line -->
+                    <path d="M3 3 L53 3 L20 102 L3 102 Z" fill="rgba(255, 255, 255, 0.12)" />
+                  </g>
+                  
+                  <!-- Basket details -->
+                  <g stroke="#7c3aed" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M45 80 H65 L88 150 H165 L185 90" />
+                    <circle cx="100" cy="175" r="9" fill="#7c3aed" stroke="none" />
+                    <circle cx="155" cy="175" r="9" fill="#7c3aed" stroke="none" />
+                    
+                    <path d="M72 95 H180" stroke-width="2.5" />
+                    <path d="M78 110 H175" stroke-width="2.5" />
+                    <path d="M84 125 H170" stroke-width="2.5" />
+                    <path d="M90 140 H165" stroke-width="2.5" />
+                    
+                    <path d="M92 90 L92 150" stroke-width="2.5" />
+                    <path d="M116 90 L114 150" stroke-width="2.5" />
+                    <path d="M140 90 L136 150" stroke-width="2.5" />
+                    <path d="M164 90 L158 150" stroke-width="2.5" />
+                  </g>
+                </svg>
+              </div>
+              <h3 class="empty-title-alt">Giỏ hàng của bạn đang trống</h3>
+              <p class="empty-desc-alt">Hãy khám phá những mẫu điện thoại mới nhất và thêm vào giỏ hàng nhé!</p>
+              
+              <router-link to="/customer/product-home" class="btn-continue-shopping-alt">
+                <ArrowLeft :size="18" />
+                <span>Tiếp tục mua sắm</span>
+              </router-link>
+            </div>
+
+            <!-- Active Cart Items List -->
+            <div class="cart-items-list" v-else>
+              <div class="cart-item-row" v-for="item in cartItems" :key="item.productId">
+                <div class="item-select-col">
+                  <input type="checkbox" v-model="item.selected" class="custom-checkbox" />
+                </div>
+                <div class="item-image-col">
+                  <img :src="item.image || '/placeholder.png'" class="item-thumbnail" alt="Product Image" />
+                </div>
+                <div class="item-info-col">
+                  <h3 class="item-title-text">{{ item.productName }}</h3>
+                  <div class="item-specs-badges">
+                    <span class="spec-badge-pill" v-if="item.ram">{{ item.ram }}</span>
+                    <span class="spec-badge-pill" v-if="item.ops">{{ item.ops }}</span>
+                    <div class="color-badge-pill" v-if="item.color">
+                      <span class="color-circle" :style="{ backgroundColor: item.color }"></span>
+                      <span class="color-label">{{ item.color }}</span>
+                    </div>
+                  </div>
+                  <div class="item-price-val">{{ Number(item.price).toLocaleString('vi-VN') }}đ</div>
+                </div>
+                <div class="item-actions-col">
+                  <div class="item-quantity-selector">
+                    <button class="quantity-btn-alt" @click="decreaseQty(item)" :disabled="item.quantity <= 1">
+                      <Minus :size="14" />
+                    </button>
+                    <input type="text" class="quantity-input-alt" :value="item.quantity" readonly />
+                    <button class="quantity-btn-alt" @click="increaseQty(item)">
+                      <Plus :size="14" />
+                    </button>
+                  </div>
+                  <button class="item-delete-btn" @click="removeItem(item)" title="Xóa sản phẩm">
+                    <Trash2 :size="14" />
+                    <span>Xóa</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </article>
-      </section>
+        </div>
 
-      <aside class="order-summary">
-        <div class=" address-row">
-          <label for="address" class="summary-label">Địa chỉ nhận hàng</label>
-          <input
-              id="address"
-              v-model="address"
-              type="text"
-              class="address-input"
-              placeholder="Nhập địa chỉ giao hàng..."
-          />
-        </div>
-        <br>
-        <h2 class="summary-title">📋 Tóm Tắt Đơn Hàng</h2>
-        <div class="summary-row">
-          <span class="summary-label">Tạm tính ({{ totalQuantity }} sản phẩm)</span>
-          <span class="summary-value">{{ subtotal.toLocaleString('vi-VN') }}₫</span>
-        </div>
-        <div class="summary-row payment-row">
-          <span class="summary-label">Hình thức thanh toán</span>
-          <span class="summary-value cod-note">
-            Khi nhận hàng
-            <small class="payment-info">(Hiện chưa hỗ trợ chuyển khoản)</small>
-          </span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-label">Phí vận chuyển</span>
-          <span class="summary-value" style="color: #43e97b;">Chờ admin duyệt đơn</span>
-        </div>
-        <div class="summary-row summary-total">
-          <span class="total-label">Tổng cộng</span>
-          <span class="total-value">{{ subtotal.toLocaleString('vi-VN') }}₫</span>
-        </div>
-        <button class="btn-checkout" @click="checkout" :disabled="isDisable()">💳 Đặt hàng ngay</button>
+        <!-- Right Column: Shipping Info & Cart Summary -->
+        <div class="cart-side-col">
+          
+          <!-- Shipping Address Card -->
+          <div class="cart-card-alt summary-card">
+            <div class="card-header-iconic">
+              <MapPin :size="18" class="summary-card-icon" />
+              <h3 class="summary-card-title">Địa chỉ nhận hàng</h3>
+            </div>
+            <div class="address-input-wrapper">
+              <MapPin :size="16" class="input-inner-icon" />
+              <input
+                id="address"
+                v-model="address"
+                type="text"
+                class="address-field-alt"
+                placeholder="Nhập địa chỉ giao hàng..."
+              />
+            </div>
+          </div>
 
-        <div class="features">
-          <div class="feature">
-            <div class="feature-icon">🚚</div>
-            <div class="feature-text">Giao hàng miễn phí</div>
+          <!-- Order Summary Card -->
+          <div class="cart-card-alt summary-card">
+            <div class="card-header-iconic">
+              <Receipt :size="18" class="summary-card-icon" />
+              <h3 class="summary-card-title">Tóm tắt đơn hàng</h3>
+            </div>
+            <div class="summary-details-rows">
+              <div class="detail-row">
+                <span class="detail-label-text">Tạm tính</span>
+                <span class="detail-value-text">{{ subtotal.toLocaleString('vi-VN') }}đ</span>
+              </div>
+              <div class="detail-row align-start">
+                <span class="detail-label-text">Hình thức thanh toán</span>
+                <div class="detail-value-group">
+                  <span class="detail-value-text text-right">Khi nhận hàng</span>
+                  <span class="payment-disclaimer">(Hiện chưa hỗ trợ chuyển khoản)</span>
+                </div>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label-text">Phí vận chuyển</span>
+                <span class="detail-value-text shipping-free">0đ</span>
+              </div>
+              
+              <div class="total-highlight-box">
+                <span class="total-label-large">Tổng cộng</span>
+                <span class="total-value-large">{{ subtotal.toLocaleString('vi-VN') }}đ</span>
+              </div>
+              
+              <button class="btn-checkout-alt" @click="checkout" :disabled="isDisable()">
+                <Lock :size="16" />
+                <span>Đặt hàng ngay</span>
+              </button>
+              <p class="checkout-hint-text" v-if="isDisable() && cartItems.length > 0">
+                Vui lòng nhập địa chỉ nhận hàng để tiếp tục
+              </p>
+              <p class="checkout-hint-text" v-else-if="cartItems.length === 0">
+                Vui lòng thêm sản phẩm vào giỏ hàng
+              </p>
+            </div>
           </div>
-          <div class="feature">
-            <div class="feature-icon">🔒</div>
-            <div class="feature-text">Thanh toán bảo mật</div>
+
+          <!-- Trust Badges -->
+          <div class="side-trust-badges-grid">
+            <div class="side-trust-card">
+              <div class="badge-icon-wrap">
+                <Truck :size="20" />
+              </div>
+              <span class="badge-text-label">Giao hàng miễn phí</span>
+            </div>
+            <div class="side-trust-card">
+              <div class="badge-icon-wrap">
+                <ShieldCheck :size="20" />
+              </div>
+              <span class="badge-text-label">Thanh toán bảo mật</span>
+            </div>
+            <div class="side-trust-card">
+              <div class="badge-icon-wrap">
+                <RotateCcw :size="20" />
+              </div>
+              <span class="badge-text-label">Đổi trả 30 ngày</span>
+            </div>
           </div>
-          <div class="feature">
-            <div class="feature-icon">↩️</div>
-            <div class="feature-text">Đổi trả 30 ngày</div>
+          
+        </div>
+      </div>
+
+      <!-- Bottom Banners Row -->
+      <div class="store-features-bar-alt">
+        <div class="store-feature-item">
+          <div class="feature-icon-outer">
+            <ShieldCheck :size="18" />
+          </div>
+          <div class="feature-texts">
+            <span class="feature-title-bold">Sản phẩm chính hãng</span>
+            <span class="feature-subtitle-soft">100% chính hãng</span>
           </div>
         </div>
-      </aside>
+        <div class="store-feature-item">
+          <div class="feature-icon-outer">
+            <Award :size="18" />
+          </div>
+          <div class="feature-texts">
+            <span class="feature-title-bold">Bảo hành uy tín</span>
+            <span class="feature-subtitle-soft">Tại trung tâm chính hãng</span>
+          </div>
+        </div>
+        <div class="store-feature-item">
+          <div class="feature-icon-outer">
+            <Headphones :size="18" />
+          </div>
+          <div class="feature-texts">
+            <span class="feature-title-bold">Hỗ trợ tận tâm</span>
+            <span class="feature-subtitle-soft">24/7 mọi lúc mọi nơi</span>
+          </div>
+        </div>
+        <div class="store-feature-item">
+          <div class="feature-icon-outer">
+            <RotateCcw :size="18" />
+          </div>
+          <div class="feature-texts">
+            <span class="feature-title-bold">Trả góp 0%</span>
+            <span class="feature-subtitle-soft">Linh hoạt, dễ dàng</span>
+          </div>
+        </div>
+      </div>
+
     </div>
-
-    <div class="continue-shopping">
-      <router-link to="/customer/product-home" class="btn-continue">⬅️ Tiếp Tục Mua Sắm</router-link>
-    </div>
-    <br>
   </div>
   <Footer/>
 </template>
+
 <style scoped>
-body {
-  box-sizing: border-box;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-button.btn-checkout:disabled {
-  background: #ddd !important;
-  color: #888 !important;
-  cursor: not-allowed !important;
-  transform: none !important;
-}
-img {
-  width: 110px;
-  height: 115px;
-}
-
-html, body {
-  height: 100%;
-}
-.cod-note {
-  display: flex;
-  flex-direction: column;
-  font-weight: 600;
-}
-
-.payment-info {
-  font-size: 12px;
-  color: #888;
-  margin-top: 2px;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #1a1a2e;
-  line-height: 1.6;
-  padding: 40px 20px;
+.cart-page-wrapper {
+  background-color: #f8f9fc;
+  min-height: 100vh;
+  padding: 40px 20px 80px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1340px;
   margin: 0 auto;
 }
 
 /* Header */
-.cart-header {
-  background: white;
-  padding: 30px 40px;
-  border-radius: 20px;
-  margin-bottom: 30px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
+.cart-header-alt {
+  background: #ffffff;
+  padding: 24px 32px;
+  border-radius: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(124, 58, 237, 0.08);
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.header-left h1 {
-  font-size: 2.5em;
-  font-weight: 800;
-  color: #1a1a2e;
-  margin-bottom: 5px;
-}
-
-.breadcrumb {
-  color: #666;
-  font-size: 1em;
-}
-
-.breadcrumb a {
-  color: #667eea;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.header-right {
-  text-align: right;
-}
-
-.address-row {
-  display: flex;
-  flex-direction: column;
-  margin-top: 12px;
-}
-
-.address-input {
-  margin-top: 6px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.address-input:focus {
-  border-color: #43e97b;
-}
-
-.cart-count {
-  font-size: 3em;
-  font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.cart-count-label {
-  color: #666;
-  font-size: 1.1em;
-  font-weight: 600;
-}
-
-/* Main Grid */
-.cart-grid {
-  display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 30px;
-  align-items: start;
-}
-
-/* Cart Items */
-.cart-items {
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-}
-
-.cart-items-header {
-  padding: 25px 30px;
-  border-bottom: 2px solid #f0f0f0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.cart-items-title {
-  font-size: 1.6em;
-  font-weight: 700;
-  color: #1a1a2e;
+.header-left-alt {
   display: flex;
   align-items: center;
-  gap: 10px;
-}
-
-.select-all {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  color: #666;
-  cursor: pointer;
-}
-
-.checkbox {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #ddd;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.checkbox.checked {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-color: #667eea;
-  position: relative;
-}
-
-.checkbox.checked::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-weight: 800;
-  font-size: 0.9em;
-}
-
-/* Cart Item */
-.cart-item {
-  padding: 25px 30px;
-  border-bottom: 2px solid #f9f9f9;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
   gap: 20px;
-  align-items: center;
-  transition: all 0.3s ease;
 }
 
-.cart-item:hover {
-  background: #f9f9f9;
-}
-
-.item-select {
-  display: flex;
-  align-items: center;
-}
-
-.item-image {
-  width: 120px;
-  height: 120px;
-  border-radius: 15px;
+.header-icon-circle {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #f3effc;
+  color: #7c3aed;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 60px;
-  flex-shrink: 0;
 }
 
-.item-details {
-  flex: 1;
+.header-titles {
+  display: flex;
+  flex-direction: column;
 }
 
-.item-name {
-  font-size: 1.3em;
+.cart-title-alt {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1e1b4b;
+  margin-bottom: 4px;
+}
+
+.breadcrumb-alt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: #6b7280;
+}
+
+.breadcrumb-link {
+  color: #7c3aed;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+
+.breadcrumb-link:hover {
+  color: #6d28d9;
+}
+
+.breadcrumb-separator {
+  color: #d1d5db;
+}
+
+.breadcrumb-current {
+  color: #9ca3af;
+}
+
+.header-right-alt {
+  display: flex;
+  align-items: center;
+}
+
+.cart-summary-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #7c3aed;
+  color: #ffffff;
+  padding: 10px 20px;
+  border-radius: 9999px;
   font-weight: 700;
-  color: #1a1a2e;
-  margin-bottom: 8px;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
 }
 
-.item-specs {
+/* Grid Layout */
+.cart-grid-alt {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 24px;
+  align-items: start;
+  margin-bottom: 32px;
+}
+
+.cart-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cart-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: sticky;
+  top: 96px;
+}
+
+/* Cart Card */
+.cart-card-alt {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid rgba(124, 58, 237, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+  padding: 28px;
+}
+
+.cart-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 20px;
+  border-bottom: 1.5px solid #f1f5f9;
+  margin-bottom: 20px;
+}
+
+.header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon-purple {
+  color: #7c3aed;
+}
+
+.card-title-text {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+.select-all-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  user-select: none;
+}
+
+.custom-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1.5px solid #d1d5db;
+  outline: none;
+  cursor: pointer;
+  accent-color: #7c3aed;
+}
+
+/* Cart Item Row */
+.cart-items-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.cart-item-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  gap: 24px;
+  align-items: center;
+  padding: 24px 0;
+  border-bottom: 1.5px solid #f1f5f9;
+}
+
+.cart-item-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.cart-item-row:first-child {
+  padding-top: 0;
+}
+
+.item-select-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-image-col {
+  width: 100px;
+  height: 100px;
+  border-radius: 16px;
+  background: #f8f9fc;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 8px;
+}
+
+.item-thumbnail {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.item-info-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-title-text {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e1b4b;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.item-specs-badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.spec-badge {
-  padding: 5px 12px;
-  background: #f0f0f0;
-  border-radius: 8px;
-  font-size: 0.85em;
-  color: #666;
-  font-weight: 600;
-}
-
-.item-price {
-  font-size: 1.4em;
-  font-weight: 800;
-  color: #667eea;
-  margin-bottom: 12px;
-}
-
-.item-controls {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.quantity-control {
-  display: flex;
-  align-items: center;
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.qty-btn {
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: white;
-  color: #666;
-  font-size: 1.3em;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.qty-btn:hover {
-  background: #667eea;
-  color: white;
-}
-
-.qty-input {
-  width: 60px;
-  height: 40px;
-  border: none;
-  text-align: center;
-  font-size: 1.1em;
-  font-weight: 700;
-  color: #1a1a2e;
-}
-
-.btn-remove {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-remove:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
-}
-
-.item-actions {
-  text-align: right;
-}
-
-.item-total {
-  font-size: 1.8em;
-  font-weight: 800;
-  color: #1a1a2e;
-  margin-bottom: 15px;
-}
-
-/* Empty Cart */
-.empty-cart {
-  padding: 80px 30px;
-  text-align: center;
-}
-
-.empty-icon {
-  font-size: 120px;
-  margin-bottom: 20px;
-  opacity: 0.3;
-}
-
-.empty-title {
-  font-size: 1.8em;
-  font-weight: 700;
-  color: #666;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
-.empty-text {
-  color: #999;
-  font-size: 1.1em;
-  margin-bottom: 30px;
+.spec-badge-pill {
+  padding: 4px 10px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  color: #4b5563;
+  font-weight: 600;
 }
 
-.btn-shop {
+.color-badge-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  color: #4b5563;
+  font-weight: 600;
+}
+
+.color-circle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   display: inline-block;
-  padding: 15px 40px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  text-decoration: none;
-  border-radius: 15px;
-  font-weight: 700;
-  font-size: 1.1em;
-  transition: all 0.3s ease;
 }
 
-.btn-shop:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
-}
-
-/* Order Summary */
-.order-summary {
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
-  padding: 30px;
-  position: sticky;
-  top: 20px;
-}
-
-.summary-title {
-  font-size: 1.6em;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin-bottom: 25px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.summary-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px 0;
-  border-bottom: 2px solid #f0f0f0;
-}
-
-.summary-label {
-  color: #666;
-  font-size: 1.05em;
-  font-weight: 600;
-}
-
-.summary-value {
-  font-weight: 700;
-  color: #1a1a2e;
-  font-size: 1.1em;
-}
-
-.summary-total {
-  padding: 20px 0;
-  margin-top: 10px;
-}
-
-.total-label {
-  font-size: 1.3em;
-  font-weight: 700;
-  color: #1a1a2e;
-}
-
-.total-value {
-  font-size: 1.8em;
+.item-price-val {
+  font-size: 1.15rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #7c3aed;
 }
 
-/* Promo Code */
-.promo-section {
-  margin: 25px 0;
-  padding: 20px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  border-radius: 15px;
-}
-
-.promo-input-group {
+.item-actions-col {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
 }
 
-.promo-input {
-  flex: 1;
-  padding: 12px 15px;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  font-size: 1em;
-  font-weight: 600;
+.item-quantity-selector {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 9999px;
+  background: #ffffff;
+  overflow: hidden;
+  height: 36px;
 }
 
-.promo-input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.btn-apply {
-  padding: 12px 25px;
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-  color: white;
+.quantity-btn-alt {
+  width: 32px;
+  height: 100%;
   border: none;
-  border-radius: 10px;
-  font-weight: 700;
+  background: transparent;
+  color: #6b7280;
   cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.btn-apply:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(67, 233, 123, 0.4);
-}
-
-/* Checkout Button */
-.btn-checkout {
-  width: 100%;
-  padding: 18px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 15px;
-  font-size: 1.2em;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-top: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  transition: all 0.2s;
 }
 
-.btn-checkout:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+.quantity-btn-alt:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #7c3aed;
 }
 
-/* Features */
-.features {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 15px;
-  margin-top: 25px;
+.quantity-btn-alt:disabled {
+  color: #d1d5db;
+  cursor: not-allowed;
 }
 
-.feature {
+.quantity-input-alt {
+  width: 40px;
+  height: 100%;
+  border: none;
   text-align: center;
-  padding: 15px;
-  background: #f9f9f9;
-  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e1b4b;
+  background: transparent;
+  outline: none;
 }
 
-.feature-icon {
-  font-size: 2em;
+.item-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1.5px solid #fee2e2;
+  border-radius: 9999px;
+  color: #ef4444;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.item-delete-btn:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+/* Empty Cart State */
+.empty-cart-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-illustration-container {
+  margin-bottom: 24px;
+}
+
+.empty-cart-svg {
+  filter: drop-shadow(0 10px 20px rgba(124, 58, 237, 0.08));
+}
+
+.empty-title-alt {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #1e1b4b;
   margin-bottom: 8px;
 }
 
-.feature-text {
-  font-size: 0.85em;
-  color: #666;
-  font-weight: 600;
+.empty-desc-alt {
+  font-size: 0.95rem;
+  color: #6b7280;
+  max-width: 400px;
+  margin-bottom: 28px;
+  line-height: 1.5;
 }
 
-/* Continue Shopping */
-.continue-shopping {
-  margin-top: 30px;
-  text-align: center;
-}
-
-.btn-continue {
+.btn-continue-shopping-alt {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 15px 30px;
-  background: white;
-  color: #667eea;
+  gap: 8px;
+  padding: 12px 28px;
+  background: #5832e0;
+  color: #ffffff;
   text-decoration: none;
-  border-radius: 15px;
+  border-radius: 9999px;
   font-weight: 700;
-  font-size: 1.1em;
-  border: 2px solid #667eea;
+  font-size: 0.95rem;
+  box-shadow: 0 8px 20px rgba(88, 50, 224, 0.25);
   transition: all 0.3s ease;
 }
 
-.btn-continue:hover {
-  background: #667eea;
-  color: white;
+.btn-continue-shopping-alt:hover {
+  background: #4726c4;
   transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(88, 50, 224, 0.35);
 }
 
-/* Responsive */
+/* Side Card Options */
+.summary-card {
+  padding: 24px;
+}
+
+.card-header-iconic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.summary-card-icon {
+  color: #7c3aed;
+}
+
+.summary-card-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+.address-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-inner-icon {
+  position: absolute;
+  left: 14px;
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.address-field-alt {
+  width: 100%;
+  height: 48px;
+  padding: 0 16px 0 40px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  outline: none;
+  background: #ffffff;
+  color: #1f2937;
+  transition: all 0.3s;
+}
+
+.address-field-alt:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+/* Summary Details */
+.summary-details-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.detail-row.align-start {
+  align-items: flex-start;
+}
+
+.detail-row:last-of-type {
+  border-bottom: none;
+}
+
+.detail-label-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.detail-value-text {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e1b4b;
+}
+
+.detail-value-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.payment-disclaimer {
+  font-size: 0.72rem;
+  color: #9ca3af;
+  margin-top: 2px;
+  font-weight: 500;
+  text-align: right;
+}
+
+.shipping-free {
+  color: #22c55e;
+}
+
+.total-highlight-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f3effc;
+  padding: 16px 20px;
+  border-radius: 16px;
+  margin: 16px 0;
+}
+
+.total-label-large {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+.total-value-large {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #7c3aed;
+}
+
+.btn-checkout-alt {
+  width: 100%;
+  height: 52px;
+  background: #7c3aed;
+  color: #ffffff;
+  border: none;
+  border-radius: 16px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.25);
+  transition: all 0.3s;
+}
+
+.btn-checkout-alt:hover:not(:disabled) {
+  background: #6d28d9;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(124, 58, 237, 0.35);
+}
+
+.btn-checkout-alt:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-checkout-alt:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.checkout-hint-text {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #ef4444;
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+/* Side trust badges */
+.side-trust-badges-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.side-trust-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(124, 58, 237, 0.08);
+}
+
+.badge-icon-wrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f3effc;
+  color: #7c3aed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge-text-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #4b5563;
+}
+
+/* Store Features Bottom Bar */
+.store-features-bar-alt {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid rgba(124, 58, 237, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+}
+
+.store-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  border-right: 1px solid #f1f5f9;
+}
+
+.store-feature-item:last-child {
+  border-right: none;
+}
+
+.feature-icon-outer {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f3effc;
+  color: #7c3aed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.feature-texts {
+  display: flex;
+  flex-direction: column;
+}
+
+.feature-title-bold {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+.feature-subtitle-soft {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* Responsiveness */
 @media (max-width: 1200px) {
-  .cart-grid {
-    grid-template-columns: 1fr 350px;
+  .cart-grid-alt {
+    grid-template-columns: 1fr 360px;
+  }
+  .store-features-bar-alt {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .store-feature-item {
+    border-right: none;
   }
 }
 
 @media (max-width: 968px) {
-  .cart-grid {
+  .cart-grid-alt {
     grid-template-columns: 1fr;
   }
-
-  .order-summary {
-    position: relative;
-  }
-
-  .cart-header {
-    flex-direction: column;
-    gap: 20px;
-    text-align: center;
-  }
-
-  .header-right {
-    text-align: center;
-  }
-
-  .cart-item {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
-
-  .item-actions {
-    text-align: left;
-  }
-
-  .features {
-    grid-template-columns: 1fr;
+  .cart-side-col {
+    position: static;
   }
 }
 
-@media (max-width: 480px) {
-  body {
-    padding: 20px 10px;
+@media (max-width: 640px) {
+  .cart-item-row {
+    grid-template-columns: auto 1fr;
+    gap: 16px;
   }
-
-  .cart-header h1 {
-    font-size: 1.8em;
+  .item-select-col {
+    grid-column: 1;
+    grid-row: 1;
   }
-
-  .cart-count {
-    font-size: 2em;
+  .item-image-col {
+    grid-column: 1;
+    grid-row: 2;
   }
-
-  .item-image {
-    width: 80px;
-    height: 80px;
-    font-size: 40px;
+  .item-info-col {
+    grid-column: 2;
+    grid-row: 1 / span 2;
   }
-
-  .item-name {
-    font-size: 1.1em;
+  .item-actions-col {
+    grid-column: 1 / span 2;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px dashed #f1f5f9;
+    padding-top: 12px;
+    margin-top: 8px;
   }
-
-  .item-controls {
+  .store-features-bar-alt {
+    grid-template-columns: 1fr;
+  }
+  .cart-header-alt {
     flex-direction: column;
     align-items: flex-start;
+    gap: 16px;
+  }
+  .header-right-alt {
+    width: 100%;
+  }
+  .cart-summary-badge {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>

@@ -8,6 +8,15 @@ import {formatCurrency} from "@/utils/Constant.ts";
 import {CartRequest} from "@/models/CartRequest.ts";
 import {cartService} from "@/service/CartService.ts";
 import {toast} from "vue3-toastify";
+import {
+  Search as SearchIcon,
+  SlidersHorizontal,
+  ChevronDown,
+  Heart,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight
+} from "@lucide/vue";
 
 const products = ref<any[]>([]);
 const searchText = ref("");
@@ -57,343 +66,477 @@ onMounted(loadProducts);
 
 <template>
   <HomeLayout/>
-  <div class="container">
-    <header class="page-header">
-      <h1>📱 Danh Sách Sản Phẩm</h1>
-      <div class="breadcrumb"><a href="#home">Trang chủ</a> / Sản phẩm</div>
-      <div class="search-section">
-        <div class="search-box">
-          <input v-model="searchText" type="text" class="search-input" placeholder="Tìm kiếm sản phẩm...">
-          <span class="search-icon" @click="onSearch">🔍</span>
+  <div class="products-page-wrapper">
+    <div class="container">
+      
+      <!-- Breadcrumbs at the top -->
+      <div class="breadcrumb-top-alt">
+        <router-link to="/" class="breadcrumb-link-alt">Trang chủ</router-link>
+        <span class="breadcrumb-separator-alt">/</span>
+        <span class="breadcrumb-current-alt">Sản phẩm</span>
+      </div>
+
+      <!-- Search, Filter & Sort Row -->
+      <div class="search-filter-row-alt">
+        <div class="search-input-wrapper-alt">
+          <SearchIcon :size="18" class="search-inner-icon-left" />
+          <input 
+            v-model="searchText" 
+            type="text" 
+            class="search-input-alt" 
+            placeholder="Tìm kiếm sản phẩm..."
+            @keyup.enter="onSearch"
+          />
+          <button class="search-action-btn-alt" @click="onSearch" aria-label="Tìm kiếm">
+            <SearchIcon :size="16" />
+          </button>
+        </div>
+        
+        <div class="filter-actions-group-alt">
+          <button class="white-action-btn-alt filter-btn-alt">
+            <span>Lọc</span>
+            <SlidersHorizontal :size="16" />
+          </button>
+          
+          <div class="sort-select-wrapper-alt">
+            <button class="white-action-btn-alt sort-btn-alt">
+              <span>Sắp xếp: Mới nhất</span>
+              <ChevronDown :size="16" />
+            </button>
+          </div>
         </div>
       </div>
-    </header>
 
-    <div class="products-grid">
-      <article v-for="product in products" :key="product.id" class="product-card">
-        <div class="product-image"><img :src="product.url" alt="" sizes="" srcset=""></div>
-        <div class="product-info">
-          <span class="product-category">{{ product.originName }}</span>
-          <h3 class="product-name">{{ product.productName }}</h3>
+      <!-- Products Grid -->
+      <div class="products-grid-alt">
+        <article v-for="product in products" :key="product.id" class="product-card-alt">
+          <!-- Top Row: Origin Tag & Wishlist -->
+          <div class="card-top-row">
+            <span class="origin-tag-alt" v-if="product.originName">{{ product.originName }}</span>
+            <span class="origin-tag-alt" v-else>Quốc tế</span>
+            <button class="wishlist-btn-alt" aria-label="Yêu thích">
+              <Heart :size="16" />
+            </button>
+          </div>
+          
+          <!-- Image -->
+          <div class="product-image-container-alt">
+            <img :src="product.url || '/placeholder.png'" class="product-thumbnail-alt" alt="Product Image" />
+          </div>
+          
+          <!-- Product Information -->
+          <div class="product-info-block-alt">
+            <h3 class="product-title-alt" :title="product.productName">{{ product.productName }}</h3>
+            
+            <!-- Technical Specs list -->
+            <div class="product-specs-list-alt" v-if="product.specs && product.specs.length">
+              <span class="spec-tag-alt" v-for="spec in product.specs" :key="spec">{{ spec }}</span>
+            </div>
+            
+            <!-- Price and Details Button -->
+            <div class="product-card-footer-alt">
+              <div class="product-price-val-alt">{{ formatCurrency(product.price) }}</div>
+              <router-link :to="`detail-product/${product.id}`" class="btn-view-detail-alt">
+                <span>Xem chi tiết</span>
+                <ArrowRight :size="14" />
+              </router-link>
+            </div>
+          </div>
+        </article>
+      </div>
 
-          <div class="product-specs">
-            <span class="spec-tag" v-for="spec in product.specs" :key="spec">{{ spec }}</span>
-          </div>
-          <div class="product-footer">
-            <div class="product-price">{{ formatCurrency(product.price | currency) }}</div>
-            <router-link :to="`detail-product/${product.id}`"
-                         class="btn-add-cart">Xem chi tiết
-            </router-link>
-          </div>
-        </div>
-      </article>
-    </div>
-    <div class="pagination">
-      <button class="page-btn" :disabled="page === 1" @click="onPageChange(page - 1)">«</button>
-      <button
-          class="page-btn active"
-      >
-        {{ page }} / {{ totalPages }}
-      </button>
-      <button class="page-btn" :disabled="page >= totalPages" @click="onPageChange(page + 1)">»</button>
+      <!-- Pagination Block -->
+      <div class="pagination-bar-alt" v-if="totalPages > 1">
+        <button class="pagination-arrow-btn" :disabled="page === 1" @click="onPageChange(page - 1)" aria-label="Trang trước">
+          <ChevronLeft :size="16" />
+        </button>
+        <span class="pagination-page-indicator">
+          Trang <strong>{{ page }}</strong> trên <strong>{{ totalPages }}</strong>
+        </span>
+        <button class="pagination-arrow-btn" :disabled="page >= totalPages" @click="onPageChange(page + 1)" aria-label="Trang sau">
+          <ChevronRight :size="16" />
+        </button>
+      </div>
+
     </div>
   </div>
   <Footer/>
 </template>
 
 <style scoped>
-img {
-  width: 250px;
-}
-
-body {
-  box-sizing: border-box;
-}
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html, body {
-  height: 100%;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #1a1a2e;
-  line-height: 1.6;
-  padding: 40px 20px;
+.products-page-wrapper {
+  background-color: #f8f9fc;
+  min-height: 100vh;
+  padding: 40px 20px 80px 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 .container {
-  max-width: 1400px;
+  max-width: 1340px;
   margin: 0 auto;
 }
 
-/* Header */
-.page-header {
-  background: white;
-  padding: 40px;
-  border-radius: 20px;
-  margin-bottom: 30px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
-}
-
-.page-header h1 {
-  font-size: 2.8em;
-  font-weight: 800;
-  color: #1a1a2e;
-  margin-bottom: 10px;
+/* Breadcrumbs */
+.breadcrumb-top-alt {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: #6b7280;
+  margin-bottom: 24px;
+  padding-left: 4px;
 }
 
-.breadcrumb {
-  color: #666;
-  font-size: 1.1em;
-  margin-bottom: 30px;
-}
-
-.breadcrumb a {
-  color: #667eea;
+.breadcrumb-link-alt {
+  color: #7c3aed;
   text-decoration: none;
   font-weight: 600;
+  transition: color 0.2s;
 }
 
-/* Search & Filter Section */
-.search-section {
+.breadcrumb-link-alt:hover {
+  color: #6d28d9;
+}
+
+.breadcrumb-separator-alt {
+  color: #d1d5db;
+}
+
+.breadcrumb-current-alt {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+/* Search, Filter & Sort Row */
+.search-filter-row-alt {
   display: flex;
   gap: 20px;
   align-items: center;
-  flex-wrap: wrap;
-}
-
-.search-box {
-  flex: 1;
-  min-width: 300px;
-  position: relative;
-}
-
-.search-input {
+  margin-bottom: 32px;
   width: 100%;
-  padding: 16px 50px 16px 20px;
-  border: 2px solid #e0e0e0;
-  border-radius: 15px;
-  font-size: 1.1em;
-  font-weight: 600;
-  transition: all 0.3s ease;
 }
 
-.search-input:focus {
-  outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+.search-input-wrapper-alt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  height: 48px;
 }
 
-.search-icon {
+.search-inner-icon-left {
   position: absolute;
-  right: 20px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 1.5em;
-  color: #667eea;
+  left: 18px;
+  color: #9ca3af;
+  pointer-events: none;
 }
 
-.results-count strong {
-  color: #667eea;
-  font-size: 1.3em;
+.search-input-alt {
+  width: 100%;
+  height: 100%;
+  padding: 0 54px 0 48px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  font-size: 0.95rem;
+  outline: none;
+  background: #ffffff;
+  color: #1f2937;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+  transition: all 0.3s;
+}
+
+.search-input-alt:focus {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.08);
+}
+
+.search-action-btn-alt {
+  position: absolute;
+  right: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #7c3aed;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.25);
+  transition: all 0.2s;
+}
+
+.search-action-btn-alt:hover {
+  background: #6d28d9;
+  transform: scale(1.05);
+}
+
+.filter-actions-group-alt {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.white-action-btn-alt {
+  height: 48px;
+  padding: 0 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4b5563;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+  transition: all 0.2s;
+}
+
+.white-action-btn-alt:hover {
+  border-color: #7c3aed;
+  color: #7c3aed;
 }
 
 /* Products Grid */
-.products-grid {
+.products-grid-alt {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 25px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
   margin-bottom: 40px;
 }
 
-.product-card {
-  background: white;
-  border-radius: 20px;
+.product-card-alt {
+  background: #ffffff;
+  border-radius: 24px;
+  border: 1px solid rgba(124, 58, 237, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.3s ease;
   overflow: hidden;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.08);
-  transition: all 0.4s ease;
-  cursor: pointer;
 }
 
-.product-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 15px 40px rgba(102, 126, 234, 0.3);
+.card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  z-index: 2;
 }
 
-.product-image {
-  height: 250px;
+.origin-tag-alt {
+  padding: 4px 10px;
+  background: #f3effc;
+  color: #7c3aed;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.wishlist-btn-alt {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #f1f5f9;
+  background: #ffffff;
+  color: #9ca3af;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 80px;
-  position: relative;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.product-info {
-  padding: 25px;
+.wishlist-btn-alt:hover {
+  background: #fef2f2;
+  border-color: #fee2e2;
+  color: #ef4444;
 }
 
-.product-category {
-  display: inline-block;
-  padding: 5px 12px;
-  background: #f0f0f0;
-  border-radius: 8px;
-  font-size: 0.85em;
-  color: #666;
-  font-weight: 600;
+.product-image-container-alt {
+  height: 180px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.product-thumbnail-alt {
+  max-height: 90%;
+  max-width: 90%;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.product-info-block-alt {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.product-title-alt {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e1b4b;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  height: 2.8em; /* Force two lines height maximum */
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.product-specs-list-alt {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-bottom: 12px;
 }
 
-.product-name {
-  font-size: 1.3em;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin-bottom: 10px;
-  line-height: 1.4;
-}
-
-.product-specs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 15px;
-}
-
-.spec-tag {
-  padding: 4px 10px;
-  background: #f9f9f9;
+.spec-tag-alt {
+  padding: 4px 8px;
+  background: #f1f5f9;
   border-radius: 6px;
-  font-size: 0.8em;
-  color: #666;
+  font-size: 0.72rem;
+  color: #4b5563;
+  font-weight: 600;
 }
 
-.product-footer {
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 15px;
-  border-top: 2px solid #f0f0f0;
+.product-card-footer-alt {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: auto;
 }
-a {
-  text-decoration: none;
-  text-align: center;
-}
-.product-price {
-  font-size: 1.6em;
+
+.product-price-val-alt {
+  font-size: 1.25rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #7c3aed;
 }
 
-.btn-add-cart {
-  padding: 12px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 12px;
+.btn-view-detail-alt {
+  width: 100%;
+  height: 42px;
+  background: transparent;
+  color: #7c3aed;
+  border: 1.5px solid rgba(124, 58, 237, 0.3);
+  border-radius: 9999px;
+  font-size: 0.88rem;
   font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding-left: 85px;
+  transition: all 0.3s ease;
+  text-decoration: none;
 }
 
-.btn-add-cart:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+/* Card Hover States */
+.product-card-alt:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 12px 28px rgba(124, 58, 237, 0.08);
+  border-color: rgba(124, 58, 237, 0.2);
+}
+
+.product-card-alt:hover .product-thumbnail-alt {
+  transform: scale(1.05);
+}
+
+.product-card-alt:hover .btn-view-detail-alt {
+  background: #7c3aed;
+  color: #ffffff;
+  border-color: #7c3aed;
+  box-shadow: 0 8px 16px rgba(124, 58, 237, 0.2);
 }
 
 /* Pagination */
-.pagination {
+.pagination-bar-alt {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 10px;
-  padding: 30px;
+  gap: 16px;
+  padding: 24px 0;
 }
 
-.page-btn {
+.pagination-arrow-btn {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
-  border: none;
-  background: #f0f0f0;
-  color: #1a1a2e;
-  font-weight: 600;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #4b5563;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.2s;
 }
 
-.page-btn:hover,
-.page-btn.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  transform: scale(1.1);
+.pagination-arrow-btn:hover:not(:disabled) {
+  border-color: #7c3aed;
+  color: #7c3aed;
 }
 
-.page-btn:disabled {
-  background: #ddd !important;
-  color: #888 !important;
-  cursor: not-allowed !important;
-  transform: none !important;
+.pagination-arrow-btn:disabled {
+  background: #f1f5f9;
+  color: #d1d5db;
+  cursor: not-allowed;
 }
 
-.page-btn:disabled:hover {
-  background: #ddd !important;
-  transform: none !important;
+.pagination-page-indicator {
+  font-size: 0.95rem;
+  color: #4b5563;
 }
 
-/* Responsive */
+.pagination-page-indicator strong {
+  color: #1e1b4b;
+}
+
+/* Responsiveness */
+@media (max-width: 1200px) {
+  .products-grid-alt {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 @media (max-width: 968px) {
-  .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 20px;
+  .products-grid-alt {
+    grid-template-columns: repeat(2, 1fr);
   }
-
-  .search-section {
+  .search-filter-row-alt {
     flex-direction: column;
+    align-items: stretch;
   }
-
-  .search-box {
-    width: 100%;
+  .filter-actions-group-alt {
+    justify-content: space-between;
   }
-
 }
 
 @media (max-width: 640px) {
-  body {
-    padding: 20px 10px;
-  }
-
-  .page-header h1 {
-    font-size: 2em;
-  }
-
-  .products-grid {
+  .products-grid-alt {
     grid-template-columns: 1fr;
   }
-
-  .pagination {
-    gap: 5px;
+  .white-action-btn-alt {
+    flex: 1;
+    justify-content: center;
   }
-
-  .page-btn {
-    min-width: 40px;
-    height: 40px;
-    font-size: 0.9em;
+  .sort-select-wrapper-alt {
+    flex: 1;
+  }
+  .sort-btn-alt {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>
