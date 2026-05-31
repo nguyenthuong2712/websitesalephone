@@ -22,6 +22,7 @@ import RegisterPage from "./pages/RegisterPage.vue";
 import ProductDetailPage from "./pages/product/ProductDetailPage.vue";
 import UserProfile from "./pages/home/UserProfile.vue";
 import PageNodePermission from "./pages/PageNodePermission.vue";
+import AdminChat from "./pages/chat/AdminChat.vue";
 
 const router = createRouter({
     history: createWebHistory(),
@@ -150,6 +151,12 @@ const router = createRouter({
                     path: 'orders-detail/:id',
                     name: 'OrderDetailPage',
                     component: OrderDetailPage,
+                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN'] }
+                },
+                {
+                    path: 'chat',
+                    name: 'AdminChat',
+                    component: AdminChat,
                     meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN'] }
                 }
             ]

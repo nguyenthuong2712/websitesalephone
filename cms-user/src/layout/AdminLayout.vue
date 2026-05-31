@@ -29,6 +29,10 @@ const logout = () => {
           <span class="nav-icon">📁</span>
           <span id="nav-item-3">Product</span>
         </router-link>
+        <router-link href="#" class="nav-item" data-page="chat" to="/admin/chat">
+          <span class="nav-icon">💬</span>
+          <span id="nav-item-5">Chat Support</span>
+        </router-link>
         <router-link href="#" class="nav-item" data-page="team" to="/admin/user">
           <span class="nav-icon">👥</span>
           <span id="nav-item-4">User</span>
