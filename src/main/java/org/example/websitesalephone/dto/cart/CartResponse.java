@@ -26,10 +26,12 @@ public class CartResponse {
                     ProductVariant variant = item.getProductVariant();
                     Product product = variant.getProduct();
 
-                    String imageUrl = product.getImages().stream()
-                            .filter(ProductImage::isActive)
-                            .findFirst()
+                    String imageUrl = product.getImages() == null ? null : product.getImages().stream()
+                            .filter(image -> !image.isDeleted())
+                            .sorted((left, right) -> Boolean.compare(right.isActive(), left.isActive()))
                             .map(ProductImage::getUrl)
+                            .filter(Objects::nonNull)
+                            .findFirst()
                             .orElse(null);
 
                     return ProductInCart.builder()
@@ -46,15 +48,12 @@ public class CartResponse {
                 })
                 .toList();
 
-        int totalQuantity = cart.getCartItems().stream()
-                .filter(item -> !item.isDeleted() && item.getStatus().equalsIgnoreCase(CartStatus.ACTIVE.getCode()))
-                .mapToInt(CartItem::getQuantity)
+        int totalQuantity = productList.stream()
+                .mapToInt(ProductInCart::getQuantity)
                 .sum();
 
-        BigDecimal total = cart.getCartItems().stream()
-                .filter(item -> !item.isDeleted() && item.getStatus().equalsIgnoreCase(CartStatus.ACTIVE.getCode()))
-                .map(item -> item.getProductVariant().getPrice()
-                        .multiply(BigDecimal.valueOf(item.getQuantity())))
+        BigDecimal total = productList.stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return CartResponse.builder()

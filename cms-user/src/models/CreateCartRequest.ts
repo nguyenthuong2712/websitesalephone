@@ -4,4 +4,6 @@ export interface CreateCartRequest {
     idRam?: string;
     idColor?: string;
     idOrigin?: string;
+    screenId?: string;
+    cameraId?: string;
 }

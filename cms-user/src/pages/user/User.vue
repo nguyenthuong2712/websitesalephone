@@ -1,76 +1,63 @@
 <script setup lang="ts">
-import {ref, onMounted, computed} from "vue";
-import {userService} from "@/service/UserService";
-import {UserSearchForm} from "@/models/UserSearchForm";
-import {useRoute} from "vue-router";
-import {toast} from "vue3-toastify";
-import {formatCurrency} from "@/utils/Constant.ts";
+import { ref, onMounted } from 'vue'
+import { toast } from 'vue3-toastify'
+import { userService } from '@/service/UserService'
+import { UserSearchForm } from '@/models/UserSearchForm'
+import { formatCurrency } from '@/utils/Constant'
 
-const route = useRoute();
-const userId = route.params.id as string;
+type UserRow = {
+  id: string
+  fullName?: string
+  email?: string
+  telNo?: string
+  orderCount?: number
+  totalSpent?: number
+  created?: string
+  deleted?: boolean
+}
 
-const users = ref<any[]>([]);
-const page = ref<number>(1);
-const size = ref<number>(10);
-const totalPages = ref<number>(0);
+const users = ref<UserRow[]>([])
+const page = ref<number>(1)
+const size = ref<number>(10)
+const totalPages = ref<number>(0)
 
-const form = ref(new UserSearchForm(page, size, "", "", ""));
+const form = ref(new UserSearchForm(page.value, size.value, '', '', ''))
 
 const searchUsers = async () => {
   try {
-    const payload = form.value.toPayload();
-    const res = await userService.search(payload);
-
-    // backend trả về Page<UserDto>
-    const pageData = res.data.data;
-
-    users.value = pageData.content;
-    totalPages.value = pageData.totalPages;
-
+    form.value.page = page.value
+    const res = await userService.search(form.value)
+    const pageData = res.data.data
+    users.value = pageData.content || []
+    totalPages.value = Number(pageData.totalPages ?? 0)
   } catch (e) {
-    console.error("Search error:", e);
+    console.error('Search error:', e)
   }
-};
-
-// đổi trang
-const changePage = async (page: number) => {
-  if (page < 1 || page > totalPages.value) return;
-  form.value.page = page;
-  await searchUsers();
-};
+}
 
 const onPageChange = (newPage: number) => {
-  newPage = Number(newPage);
-  if (newPage < 1) {
-    newPage = 1;
+  const normalizedPage = Number(newPage)
+  if (normalizedPage < 1 || normalizedPage > totalPages.value || normalizedPage === page.value) {
+    return
   }
 
-  if (newPage > totalPages.value) {
-    newPage = totalPages.value;
-  }
-
-  if (newPage === page.value) {
-    return;
-  }
-
-  page.value = newPage;
-  searchUsers();
-};
-
-const deleted = async (id: string) => {
-  const res = await userService.deleteUser(id);
-  if (res.data.code === 0) {
-    toast.success("Xóa tài khoản thành công")
-  } else {
-    toast.error("Xóa tài khoản không thành công")
-  }
+  page.value = normalizedPage
   searchUsers()
 }
 
-// load lần đầu
+const deleted = async (id: string) => {
+  const res = await userService.deleteUser(id)
+  if (res.data.code === 0) {
+    toast.success('Xóa tài khoản thành công')
+  } else {
+    toast.error('Xóa tài khoản không thành công')
+  }
+  await searchUsers()
+}
+
 onMounted(() => {
-  searchUsers();
-});
+  searchUsers()
+})
 </script>
 
 
@@ -108,7 +95,7 @@ onMounted(() => {
           </td>
           <td>{{ u.telNo }}</td>
           <td>{{ u.orderCount }}</td>
-          <td><span class="price">{{ formatCurrency(u.totalSpent) }}</span></td>
+          <td><span class="price">{{ formatCurrency(u.totalSpent ?? 0) }}</span></td>
           <td>{{ u.created }}</td>
           <td>
       <span :class="['status-badge', u.deleted ? 'status-active' : 'status-block']">

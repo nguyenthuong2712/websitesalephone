@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.example.websitesalephone.enums.ProductStatus;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Getter
@@ -23,21 +24,14 @@ public class Product extends BaseEntity{
     @Column(name = "name", columnDefinition = "NVARCHAR(255) COLLATE Vietnamese_CI_AS")
     private String name;
 
-    @Column(name = "description", columnDefinition = "NVARCHAR(MAX) COLLATE Vietnamese_CI_AS")
+    @Column(name = "description", columnDefinition = "NVARCHAR(255) COLLATE Vietnamese_CI_AS")
     private String description;
-
-    @Column(name = "location", columnDefinition = "NVARCHAR(255) COLLATE Vietnamese_CI_AS")
-    private String location;
-
-    @Column(name = "storage", columnDefinition = "NVARCHAR(100) COLLATE Vietnamese_CI_AS")
-    private String storage;
-
-    @Column(name = "device_make", columnDefinition = "NVARCHAR(100) COLLATE Vietnamese_CI_AS")
-    private String deviceMake;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 50)
     private ProductStatus status;
+
+    private BigDecimal price;
 
     @ManyToOne
     @JoinColumn(name = "shop_registration_id")

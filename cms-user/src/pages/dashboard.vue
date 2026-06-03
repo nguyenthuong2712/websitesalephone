@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import {orderService} from "@/service/OrderService.ts";
+import { orderService } from '@/service/OrderService';
 
 const totalOrder = ref(0);
 const totalProduct = ref(0);

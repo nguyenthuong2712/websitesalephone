@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import {authService} from "@/service/AuthService.ts";
-import {toast} from "vue3-toastify";
-import {ref} from "vue";
-import router from "@/router.ts";
+import { authService } from '@/service/AuthService';
+import { toast } from 'vue3-toastify';
+import { ref } from 'vue';
+import router from '@/router';
 const showMenu = ref(false);
 
 const logout = () => {
@@ -28,6 +28,10 @@ const logout = () => {
         <router-link href="#" class="nav-item" data-page="projects" to="/admin/product">
           <span class="nav-icon">📁</span>
           <span id="nav-item-3">Product</span>
+        </router-link>
+        <router-link href="#" class="nav-item" data-page="chat" to="/admin/chat">
+          <span class="nav-icon">💬</span>
+          <span id="nav-item-5">Chat Support</span>
         </router-link>
         <router-link href="#" class="nav-item" data-page="team" to="/admin/user">
           <span class="nav-icon">👥</span>

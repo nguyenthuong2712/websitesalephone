@@ -3,10 +3,70 @@ import Footer from "../../layout/Footer.vue";
 import Header from "../../layout/Header.vue";
 import {useRoute} from "vue-router";
 import {computed, onMounted, ref} from "vue";
-import {orderService} from "@/service/OrderService.ts";
-import {formatCurrency, getContrastColor} from "../../utils/Constant.ts";
-import {OrderRequest} from "@/models/OrderRequest.ts";
+import { orderService } from '@/service/OrderService';
+import { formatCurrency, getContrastColor } from '@/utils/Constant';
+import { OrderRequest } from '@/models/OrderRequest';
 import {toast} from "vue3-toastify";
+
+const orderColorMap: Record<string, string> = {
+  BLACK: '#000000',
+  WHITE: '#FFFFFF',
+  RED: '#FF0000',
+  GREEN: '#00A651',
+  BLUE: '#0000FF',
+  YELLOW: '#FFFF00',
+  ORANGE: '#FFA500',
+  PURPLE: '#800080',
+  PINK: '#FFC0CB',
+  BROWN: '#8B4513',
+  GREY: '#808080',
+  GRAY: '#808080',
+  SILVER: '#C0C0C0',
+  GOLD: '#FFD700',
+  DEN: '#000000',
+  TRANG: '#FFFFFF',
+  DO: '#FF0000',
+  XANH: '#0000FF',
+  XANH_DUONG: '#0000FF',
+  XANH_LA: '#00A651',
+  VANG: '#FFD700',
+  CAM: '#FFA500',
+  TIM: '#800080',
+  HONG: '#FFC0CB',
+  NAU: '#8B4513',
+  XAM: '#808080',
+  BAC: '#C0C0C0',
+}
+
+const resolveOrderColorHex = (colorName?: string): string => {
+  if (!colorName) return '#ccc'
+  const normalized = colorName.trim()
+
+  if (normalized.startsWith('#') || normalized.startsWith('rgb') || normalized.startsWith('hsl')) {
+    return normalized
+  }
+
+  const key = normalized
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_')
+    .toUpperCase()
+
+  return orderColorMap[key] ?? normalized.toLowerCase()
+}
+
+const getOrderDetailColorStyle = (colorName?: string) => {
+  const colorHex = resolveOrderColorHex(colorName)
+  return {
+    backgroundColor: colorHex,
+    color: getContrastColor(colorHex),
+  }
+}
+
+void getOrderDetailColorStyle
+void resolveOrderColorHex
+void orderColorMap
 
 const route = useRoute();
 const orderDetail = ref<any>(null);
@@ -31,7 +91,6 @@ const timeline = computed(() => {
   return TIMELINE_ORDER.map(step => {
     const match = orderDetail.value.orderHistoryStatusResponses
         ?.find((s: any) => s.status === step.status);
-    console.log("match", match)
     return {
       ...step,
       time: match?.createdAt ?? null,
@@ -192,7 +251,7 @@ onMounted(() => {
                   </div>
                   <div class="product-variant">
                     Phân loại: {{ p?.ram }} | <span class="spec-badge"
-                                                    :style="{ backgroundColor: p?.color, color: getContrastColor(p.color) }">
+                                                    :style="getOrderDetailColorStyle(p?.color)">
               </span> | {{p?.screen}} | {{p?.camera}}
                   </div>
                   <div class="product-quantity">

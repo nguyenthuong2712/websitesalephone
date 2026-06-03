@@ -9,43 +9,33 @@
   </div>
 </template>
 
-<script>
-import {authService} from "@/service/AuthService.ts";
-import {useRouter} from 'vue-router';
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { authService } from '@/service/AuthService'
 
-export default {
-  setup() {
-    const router = useRouter();
+const router = useRouter()
 
-    const goHome = () => {
-      const isAuth = authService.isAuthenticated();
-      const role = authService.getRole();
+const goHome = () => {
+  const isAuth = authService.isAuthenticated()
+  const role = authService.getRole()
 
-      if (!isAuth) {
-        return router.push('/');
-      }
-
-      if (role === 'CUSTOMER') {
-        return router.push('/customer/home');
-      }
-
-      if (role === 'ADMIN') {
-        return router.push('/admin/dashboard');
-      }
-
-      if (role === 'STAFF') {
-        return router.push('/admin/product');
-      }
-
-      if (role === 'PARTNER') {
-        return router.push('/admin/product');
-      }
-
-      return router.push('/');
-    };
-
-    return { goHome };
+  if (!isAuth) {
+    return router.push('/')
   }
+
+  if (role === 'CUSTOMER') {
+    return router.push('/customer/home')
+  }
+
+  if (role === 'ADMIN') {
+    return router.push('/admin/dashboard')
+  }
+
+  if (role === 'STAFF') {
+    return router.push('/admin/product')
+  }
+
+  return router.push('/')
 }
 </script>
 <style scoped>

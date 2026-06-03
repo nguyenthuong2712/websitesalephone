@@ -25,7 +25,6 @@ public enum RoleEnums {
         return value;
     }
 
-    // Nếu muốn lấy enum theo id
     public static RoleEnums fromId(String id) {
         for (RoleEnums role : values()) {
             if (Objects.equals(role.getId(), id)) {

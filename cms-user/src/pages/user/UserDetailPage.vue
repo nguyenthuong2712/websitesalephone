@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import {ref, onMounted} from "vue";
-import {userService} from "@/service/UserService";
-import {toast} from "vue3-toastify";
-
-import {useRoute} from "vue-router";
-import {CreateUserDto} from "@/models/CreateUserDto.ts";
-import router from "@/router.ts";
-import {useUserStore} from "@/userStore.ts";
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { toast } from 'vue3-toastify'
+import { userService } from '@/service/UserService'
+import { CreateUserDto, type ICreateUserDto } from '@/models/CreateUserDto'
+import router from '@/router'
 const route = useRoute();
 const loginId = route.params.id as string;
 const isUpdate = ref(!!loginId);
@@ -63,11 +61,11 @@ const loadUserDetail = async () => {
 const submitForm = async () => {
   try {
     if (isUpdate.value) {
-      await userService.updateUser(form.value.toPayload());
+      await userService.updateUser(form.value.toPayload() as ICreateUserDto);
       loadUserDetail();
       toast.success("Cập nhật người dùng thành công!");
     } else {
-      await userService.createUser(form.value.toPayload());
+      await userService.createUser(form.value);
       toast.success("Tạo người dùng mới thành công!");
       router.push("/admin/user")
     }
@@ -84,7 +82,7 @@ onMounted(() => {
 
 // toggle active
 const toggleActive = () => {
-  form.value.active = !form.value.active;
+  form.value.isDeleted = !form.value.isDeleted;
 };
 
 // cancel

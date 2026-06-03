@@ -1,90 +1,102 @@
 <script setup lang="ts">
-import Header from "../../layout/Header.vue";
-import Footer from "../../layout/Footer.vue";
-import {orderService} from "@/service/OrderService.ts";
-import {useUserStore} from "@/userStore.ts";
-import {onMounted, ref} from "vue";
-import {formatCurrency} from "@/utils/Constant.ts";
+import Header from '../../layout/Header.vue'
+import Footer from '../../layout/Footer.vue'
+import { onMounted, ref } from 'vue'
+import { orderService } from '@/service/OrderService'
+import { useUserStore } from '@/userStore'
+import { formatCurrency } from '@/utils/Constant'
+import type { OrderByUserRequest } from '@/models/OrderByUserRequest'
 
-const searchText = ref('');
-const from = ref(null);
-const to = ref(null);
-const order = ref<any>(null);
-const activeStatus = ref(null);
-const countAll = ref(0);
-const countPending = ref(0);
-const countConfirmed = ref(0);
-const countShipping = ref(0);
-const countDelivered = ref(0);
-const countCompleted = ref(0);
-const countCancelled = ref(0);
+type OrderStatus = 'ALL' | 'PENDING' | 'CONFIRMED' | 'SHIPPING' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED'
 
-const countMap = {
+type UserStoreShape = {
+  id?: string
+  fullName?: string
+  email?: string
+  telNo?: string
+  address?: string
+  gender?: string
+  role?: string
+}
+
+const searchText = ref('')
+const from = ref<string | null>(null)
+const to = ref<string | null>(null)
+const order = ref<any[]>([])
+const activeStatus = ref<OrderStatus | null>(null)
+const countAll = ref(0)
+const countPending = ref(0)
+const countConfirmed = ref(0)
+const countShipping = ref(0)
+const countDelivered = ref(0)
+const countCompleted = ref(0)
+const countCancelled = ref(0)
+
+const countMap: Record<OrderStatus, typeof countAll> = {
   ALL: countAll,
   PENDING: countPending,
   CONFIRMED: countConfirmed,
   SHIPPING: countShipping,
   DELIVERED: countDelivered,
   COMPLETED: countCompleted,
-  CANCELLED: countCancelled
-};
-
-
-const countOrderByUser = async (status: string) => {
-  const req = {
-    userId: userStore.user.id,
-    status: status
-  };
-
-  try {
-    const res = await orderService.countOrderByUser(req);
-
-    if (countMap[status]) {
-      countMap[status].value = res.data.data;
-    }
-
-  } catch (err: any) {
-    console.log(err);
-  }
-};
-
-const getListOrderByUser = async (status: string) => {
-  activeStatus.value = status;
-  const req: OrderByUserRequest = {
-    id: userStore.user.id,
-    searchText: searchText.value,
-    status,
-    fromDate: toIso(from.value),
-    toDate: toIso(to.value),
-  };
-  try {
-    const res = await orderService.getListOrderByUser(req);
-    order.value = res.data.data;
-  } catch (err: any) {
-    console.log(err)
-  }
-};
-
-function toIso(date: any) {
-  if (date === null) return null;
-  return `${date.value}T00:00:00+07:00`;
+  CANCELLED: countCancelled,
 }
 
-const userStore = useUserStore();
-const user = userStore.user;
+const userStore = useUserStore()
+
+const getUserId = (): string | null => {
+  const user = userStore.user as UserStoreShape | null
+  return user?.id ?? null
+}
+
+const countOrderByUser = async (status: OrderStatus) => {
+  const userId = getUserId()
+  if (!userId) return
+
+  try {
+    const res = await orderService.countOrderByUser({ userId, status })
+    countMap[status].value = Number(res.data.data ?? 0)
+  } catch (err) {
+    console.error('Count order by user error', err)
+  }
+}
+
+const getListOrderByUser = async (status: OrderStatus | null) => {
+  const userId = getUserId()
+  if (!userId) return
+
+  activeStatus.value = status
+  const req: OrderByUserRequest = {
+    id: userId,
+    searchText: searchText.value,
+    status: status ?? undefined,
+    fromDate: toIso(from.value),
+    toDate: toIso(to.value),
+  }
+
+  try {
+    const res = await orderService.getListOrderByUser(req)
+    order.value = Array.isArray(res.data.data) ? res.data.data : []
+  } catch (err) {
+    console.error('Load order list by user error', err)
+  }
+}
+
+function toIso(date: string | null): string | undefined {
+  return date ? `${date}T00:00:00+07:00` : undefined
+}
 
 onMounted(async () => {
-  await userStore.getUserByLoginId();
+  await userStore.getUserByLoginId()
   await getListOrderByUser(null)
-  await countOrderByUser("ALL");
-  await countOrderByUser("PENDING");
-  await countOrderByUser("CONFIRMED");
-  await countOrderByUser("SHIPPING");
-  await countOrderByUser("DELIVERED");
-  await countOrderByUser("COMPLETED");
-  await countOrderByUser("CANCELLED");
-});
-
+  await countOrderByUser('ALL')
+  await countOrderByUser('PENDING')
+  await countOrderByUser('CONFIRMED')
+  await countOrderByUser('SHIPPING')
+  await countOrderByUser('DELIVERED')
+  await countOrderByUser('COMPLETED')
+  await countOrderByUser('CANCELLED')
+})
 </script>
 
 <template>
@@ -95,7 +107,7 @@ onMounted(async () => {
         <h1>📦 Đơn Hàng Của Tôi</h1>
       </header><!-- Search & Filter -->
       <div class="filter-bar">
-        <div class="search-box"><input type="text" id="searchInput"
+        <div class="search-box"><input type="text" id="searchInput" v-model="searchText"
                                        placeholder="Tìm kiếm theo mã đơn hàng hoặc tên sản phẩm..."> <span
             class="search-icon">🔍</span>
         </div>

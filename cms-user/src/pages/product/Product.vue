@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import {ref, onMounted, computed, watch} from 'vue';
-import {productService} from '@/service/ProductService.ts';
-import {Search} from '@/models/Search.ts';
-import {toast} from "vue3-toastify";
-import {formatCurrency} from "@/utils/Constant.ts";
+import { ref, onMounted, watch } from 'vue';
+import { productService } from '@/service/ProductService';
+import { Search } from '@/models/Search';
+import { toast } from 'vue3-toastify';
+import { formatCurrency } from '@/utils/Constant';
 
 const products = ref<any[]>([]);
 const searchText = ref("");
@@ -17,8 +17,6 @@ const fetchProducts = async () => {
     const res = await productService.search(search);
     products.value = res.data.data.content || [];
     totalPages.value = Number(res.data.data.totalPages ?? 1);
-
-    console.log("📄 Fetched page:", page.value, "totalPages:", totalPages.value);
   } catch (error) {
     console.error("Lỗi khi load sản phẩm:", error);
   }
@@ -50,22 +48,9 @@ watch(searchText, () => {
 const deleted = async (id: string) => {
   const res = await productService.deleteProduct(id);
   if (res.data.code === 0) {
-    toast.success("Ẩn sản phẩm thành công")
+    toast.success("Xóa sản phẩm thành công")
   } else {
-    toast.error(res.data.message || "Ẩn sản phẩm thất bại")
-  }
-  await fetchProducts();
-}
-
-const hardDelete = async (id: string) => {
-  if (!confirm("Bạn chắc chắn muốn XÓA HẲN sản phẩm này? Dữ liệu sẽ mất vĩnh viễn.")) {
-    return;
-  }
-  const res = await productService.hardDeleteProduct(id);
-  if (res.data.code === 0) {
-    toast.success("Đã xóa hẳn sản phẩm")
-  } else {
-    toast.error(res.data.message || "Xóa hẳn thất bại")
+    toast.error("Xóa sản phẩm không thành công")
   }
   await fetchProducts();
 }
@@ -110,16 +95,15 @@ onMounted(async () => {
           <td>{{ product.quantity }}</td>
           <td>{{ product.quantityUnitSold }}</td>
           <td>
-            <span :class="['status-badge', product.status === 'ACTIVE' ? 'status-active' : 'status-inactive']">
-              {{ product.status === 'ACTIVE' ? 'Đang Bán' : 'Ngừng Bán' }}
+            <span :class="['status-badge', product.status === 'ACTIVE' ? 'status-active' : product.status === 'OUT_OF_STOCK' ? 'status-block' : 'status-inactive']">
+              {{ product.status === 'ACTIVE' ? 'Đang Bán' : product.status === 'OUT_OF_STOCK' ? 'Hết Hàng' : 'Ngừng Bán' }}
             </span>
           </td>
           <td>
             <div class="action-buttons">
               <button class="action-btn btn-view">👁️</button>
               <router-link :to="`/admin/product-detail/${product.id}`" class="action-btn btn-edit">✏️</router-link>
-              <button class="action-btn btn-delete" title="Ẩn sản phẩm" @click="deleted(product.id)">🗃️</button>
-              <button class="action-btn btn-delete-forever" title="Xóa hẳn" @click="hardDelete(product.id)">🔥</button>
+              <button class="action-btn btn-delete" @click="deleted(product.id)">🗑️</button>
             </div>
           </td>
         </tr>

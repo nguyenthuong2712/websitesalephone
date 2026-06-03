@@ -1,80 +1,71 @@
-import api from '../api/api.ts';
-import type {apiResponse} from "api";
-import {ResetPasswordRequest, IResetPasswordRequest} from '../models/ResetPasswordRequest';
+import type { AxiosResponse } from 'axios'
+import api from '../api/api'
+import type { AuthUser } from '../models/AuthUser'
+import { RegisterRequest } from '../models/RegisterRequest'
+import { ResetPasswordRequest, type IResetPasswordRequest } from '../models/ResetPasswordRequest'
 
 class AuthService {
-    private ROOT_API = import.meta.env.VITE_ROOT_API + '/api/auth/';
+    private readonly ROOT_API = `${import.meta.env.VITE_ROOT_API}/api/auth/`
 
-    private tokenKey: string = 'Authorization';
-    private roleKey: string = 'USER-ROLE';
+    private readonly tokenKey = 'Authorization'
+    private readonly roleKey = 'USER-ROLE'
 
     public isAuthenticated(): boolean {
-        const t = localStorage.getItem(this.tokenKey);
-        return t !== null && t !== undefined && t !== '' && t !== 'null';
+        const token = this.getToken()
+        return token !== null
     }
 
     public getRole(): string | null {
-        const role = localStorage.getItem(this.roleKey);
-        if (role && role !== 'null' && role !== '') {
-            return role;
-        }
-        return null;
+        const role = localStorage.getItem(this.roleKey)
+        return role && role !== 'null' && role !== '' ? role : null
     }
 
     public getToken(): string | null {
-        const token = localStorage.getItem(this.tokenKey);
-        if (token && token !== 'null' && token !== '') {
-            return token;
-        }
-        return null;
+        const token = localStorage.getItem(this.tokenKey)
+        return token && token !== 'null' && token !== '' ? token : null
     }
 
-    public async login(request: any): Promise<apiResponse> {
-        return api.post(`${this.ROOT_API}login`, request);
+    public login(request: AuthUser): Promise<AxiosResponse> {
+        return api.post(`${this.ROOT_API}login`, request.toAuthPayload())
     }
 
-    public saveToken(token: string) {
-        localStorage.setItem(this.tokenKey, token);
-        console.log(token)
+    public saveToken(token: string): void {
+        localStorage.setItem(this.tokenKey, token)
     }
 
-    public saveRole(role: string) {
-        localStorage.setItem(this.roleKey, role);
+    public saveRole(role: string): void {
+        localStorage.setItem(this.roleKey, role)
     }
 
-    public removeTokenAndRole() {
-        localStorage.removeItem(this.tokenKey);
-        localStorage.removeItem(this.roleKey);
+    public removeTokenAndRole(): void {
+        localStorage.removeItem(this.tokenKey)
+        localStorage.removeItem(this.roleKey)
     }
 
-
-    // Logout
-    public logout(token?: string): Promise<apiResponse> {
+    public logout(token?: string): Promise<AxiosResponse> {
+        const authToken = token ?? this.getToken() ?? ''
         this.removeTokenAndRole()
-        return api.post(`${this.ROOT_API}logout`, null, {params: {token}});
+        return api.post(`${this.ROOT_API}logout`, null, { params: { token: authToken } })
     }
 
-    // Quên mật khẩu
-    public forgotPassword(email: string, tabletOrPc: string): Promise<apiResponse> {
+    public forgotPassword(email: string, tabletOrPc: string): Promise<AxiosResponse> {
         return api.post(`${this.ROOT_API}forgot-password`, null, {
-            params: {email, tabletOrPc}
-        });
+            params: { email, tabletOrPc },
+        })
     }
 
-    // Reset mật khẩu
-    public resetPassword(request: ResetPasswordRequest | IResetPasswordRequest): Promise<apiResponse> {
-        const payload = request instanceof ResetPasswordRequest ? request.toPayload() : request;
-        return api.post(`${this.ROOT_API}reset-password`, payload);
+    public resetPassword(request: ResetPasswordRequest | IResetPasswordRequest): Promise<AxiosResponse> {
+        const payload = request instanceof ResetPasswordRequest ? request.toPayload() : request
+        return api.post(`${this.ROOT_API}reset-password`, payload)
     }
 
-    // Kiểm tra token reset mật khẩu
-    public checkResetToken(token: string): Promise<apiResponse> {
-        return api.get(`${this.ROOT_API}check-reset-token`, {params: {token}});
+    public checkResetToken(token: string): Promise<AxiosResponse> {
+        return api.get(`${this.ROOT_API}check-reset-token`, { params: { token } })
     }
 
-    public register(request: RegisterRequest): Promise<apiResponse> {
-        return api.post(`${this.ROOT_API}register`, request.toPayload());
+    public register(request: RegisterRequest): Promise<AxiosResponse> {
+        return api.post(`${this.ROOT_API}register`, request.toPayload())
     }
 }
 
-export const authService = new AuthService();
+export const authService = new AuthService()

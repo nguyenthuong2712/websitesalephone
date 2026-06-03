@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref, onMounted, computed} from "vue";
+import {ref, onMounted, computed, watch} from "vue";
 import HomeLayout from "../../layout/Header.vue";
 import Footer from "../../layout/Footer.vue";
 import {cartService} from "@/service/CartService.ts";
@@ -7,6 +7,7 @@ import type {CartResponse, ProductInCart} from "@/models/Cart.ts";
 import {CartRequest} from "@/models/CartRequest.ts";
 import {toast} from "vue3-toastify";
 import {CheckOutRequest} from "@/models/CheckOutRequest.ts";
+import { useCartStore } from "@/cartStore";
 import {
   ShoppingCart,
   ShoppingBag,
@@ -29,6 +30,14 @@ const cartItems = ref<CartItemWithSelect[]>([]);
 const loading = ref(false);
 const search = {};
 const address = ref<string>("");
+
+const cartStore = useCartStore();
+
+// Sync the cart count in store when cartItems changes
+watch(() => cartItems.value, (newItems) => {
+  const count = newItems.reduce((sum, i) => sum + i.quantity, 0);
+  cartStore.setCartCount(count);
+}, { deep: true });
 
 const fetchCartItems = async () => {
   loading.value = true;
@@ -73,6 +82,8 @@ const increaseQty = async (item: CartItemWithSelect) => {
   } catch (err) {
     toast.error("Update cart error", err);
     console.log("Update cart error", err);
+    console.error('Update cart error', err)
+    toast.error('Cập nhật giỏ hàng thất bại')
   }
 };
 
@@ -111,18 +122,92 @@ const checkout = async () => {
       address.value
   );
   try {
-    console.log(payload)
-    await cartService.checkoutCart(payload.toPayload());
-    toast.success("Thanh toán thành công!");
-    await fetchCartItems();
+    await cartService.checkoutCart(payload.toPayload())
+    toast.success('Thanh toán thành công!')
+    await fetchCartItems()
   } catch (err) {
-    toast.error("Checkout error", err);
+    console.error('Checkout error', err)
+    toast.error('Thanh toán thất bại')
   }
 };
+
+const cartColorMap: Record<string, string> = {
+  BLACK: '#000000',
+  WHITE: '#FFFFFF',
+  RED: '#FF0000',
+  GREEN: '#00A651',
+  BLUE: '#0000FF',
+  YELLOW: '#FFFF00',
+  ORANGE: '#FFA500',
+  PURPLE: '#800080',
+  PINK: '#FFC0CB',
+  BROWN: '#8B4513',
+  GREY: '#808080',
+  GRAY: '#808080',
+  SILVER: '#C0C0C0',
+  GOLD: '#FFD700',
+  DEN: '#000000',
+  TRANG: '#FFFFFF',
+  DO: '#FF0000',
+  XANH: '#0000FF',
+  XANH_DUONG: '#0000FF',
+  XANH_LA: '#00A651',
+  VANG: '#FFD700',
+  CAM: '#FFA500',
+  TIM: '#800080',
+  HONG: '#FFC0CB',
+  NAU: '#8B4513',
+  XAM: '#808080',
+  BAC: '#C0C0C0',
+}
+
+const resolveCartColorHex = (colorName?: string): string => {
+  if (!colorName) return '#ccc'
+
+  const normalized = colorName.trim()
+  if (normalized.startsWith('#') || normalized.startsWith('rgb') || normalized.startsWith('hsl')) {
+    return normalized
+  }
+
+  const key = normalized
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_')
+    .toUpperCase()
+
+  return cartColorMap[key] ?? normalized.toLowerCase()
+}
+
+function getContrastColor(hex: string): string {
+  const colorHex = resolveCartColorHex(hex)
+  const c = colorHex.startsWith('#') ? colorHex.substring(1) : colorHex
+
+  if (c.length !== 6) return '#000'
+
+  const r = parseInt(c.substring(0, 2), 16)
+  const g = parseInt(c.substring(2, 4), 16)
+  const b = parseInt(c.substring(4, 6), 16)
+
+  if ([r, g, b].some(Number.isNaN)) return '#000'
+
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000
+  return brightness > 125 ? '#000' : '#fff'
+}
+
+const getCartColorStyle = (colorName?: string) => ({
+  backgroundColor: resolveCartColorHex(colorName),
+  color: getContrastColor(resolveCartColorHex(colorName)),
+})
+
+void getCartColorStyle
+void cartColorMap
+void resolveCartColorHex
 
 function isDisable(): boolean{
   if (cartItems.value.length === 0) return true;
   return address.value === null || address.value === '' || address.value === undefined;
+
 }
 </script>
 

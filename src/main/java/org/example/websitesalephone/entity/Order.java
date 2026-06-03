@@ -49,7 +49,7 @@ public class Order extends BaseEntity{
 
     private String statusTransaction;
 
-    @OneToMany(mappedBy = "order")
+    @OneToMany(mappedBy = "order", fetch = FetchType.EAGER)
     private List<OrderItem> orderItems;
 
     @OneToMany(mappedBy = "order")

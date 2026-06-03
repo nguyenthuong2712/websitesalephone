@@ -2,8 +2,8 @@
 import {ref, onMounted, computed} from 'vue';
 import {useRoute} from 'vue-router';
 import {orderService} from '@/service/OrderService';
-import {formatCurrency} from "@/utils/Constant.ts";
-import {OrderRequest} from "@/models/OrderRequest.ts";
+import { formatCurrency } from '@/utils/Constant';
+import { OrderRequest } from '@/models/OrderRequest';
 import {toast} from "vue3-toastify";
 
 const route = useRoute();
@@ -13,7 +13,7 @@ const orderDetail = ref<any>(null);
 const loading = ref(false);
 const error = ref('');
 const description = ref('');
-const shippingFee = ref(<number>0);
+const shippingFee = ref<number>(0);
 const listHistory = ref<any>();
 
 const TIMELINE_ORDER = [
@@ -34,7 +34,6 @@ const timeline = computed(() => {
   return TIMELINE_ORDER.map(step => {
     const match = orderDetail.value.orderHistoryStatusResponses
         ?.find((s: any) => s.status === step.status);
-    console.log("match", match)
     return {
       ...step,
       time: match?.createdAt ?? null,
@@ -93,17 +92,9 @@ const updateOrderStatus = async (newStatus: string) => {
  * Những computed này mới dùng được timeline
  * vì timeline đã nằm ngoài fetch()
  */
-const currentStepIndex = computed(() => {
-  // Duyệt ngược từ cuối mảng lên để tìm bước completed = true đầu tiên gặp
-  // Hoặc dùng findLastIndex nếu trình duyệt hỗ trợ, nhưng cách dưới đây an toàn nhất:
-  for (let i = timeline.value.length - 1; i >= 0; i--) {
-    if (timeline.value[i].completed) {
-      return i;
-    }
-  }
-  // Nếu chưa có bước nào completed, trả về 0 (bước đầu tiên)
-  return 0;
-});
+const firstIncompleteIndex = computed(() =>
+    timeline.value.findIndex(t => !t.completed)
+);
 
 const progressPercent = computed(() => {
   const steps = timeline.value.filter(s => s.status !== 'CANCELLED');
@@ -300,8 +291,8 @@ onMounted(() => {
           v-for="(step, idx) in timeline"
           :key="idx"
           :class="{
-        'completed': idx < currentStepIndex,  /* Các bước TRƯỚC bước hiện tại là completed (màu xanh tĩnh) */
-        'active': idx === currentStepIndex    /* Bước HIỆN TẠI là active (màu tím + animation) */
+      completed: step.completed,
+      active: !step.completed && idx === firstIncompleteIndex
     }"
       >
         <div class="step-icon">{{ step.icon }}</div>
@@ -602,7 +593,7 @@ body {
 .timeline-step.active .step-icon {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-color: #667eea;
-  animation: pulse 2s infinite;
+  //animation: pulse 2s infinite;
 }
 
 @keyframes pulse {

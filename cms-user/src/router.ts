@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { authService } from "./service/AuthService.ts";
+import { authService } from './service/AuthService'
 
 // Customer pages
 import DetailProductHome from './pages/home/DetailProductHome.vue'
@@ -22,11 +22,11 @@ import RegisterPage from "./pages/RegisterPage.vue";
 import ProductDetailPage from "./pages/product/ProductDetailPage.vue";
 import UserProfile from "./pages/home/UserProfile.vue";
 import PageNodePermission from "./pages/PageNodePermission.vue";
-import ShopRegisterPage from "./pages/home/ShopRegisterPage.vue";
+import AdminChat from "./pages/chat/AdminChat.vue";
 
 const router = createRouter({
     history: createWebHistory(),
-    scrollBehavior(to, from, savedPosition) {
+    scrollBehavior(_to, _from, savedPosition) {
         return savedPosition ? savedPosition : { left: 0, top: 0 }
     },
     routes: [
@@ -54,49 +54,43 @@ const router = createRouter({
                     path: 'home',
                     name: 'home',
                     component: HomePage,
-                    meta: { requiresAuth: true, roles: ['CUSTOMER', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
                 },
                 {
                     path: 'detail-product/:id',
                     name: 'DetailProductHome',
                     component: DetailProductHome,
-                    meta: { requiresAuth: true, roles: ['CUSTOMER', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
                 },
                 {
                     path: 'cart',
                     name: 'cart',
                     component: Cart,
-                    meta: { requiresAuth: true, roles: ['CUSTOMER', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
                 },
                 {
                     path: 'product-home',
                     name: 'HomeProduct',
                     component: HomeProduct,
-                    meta: { requiresAuth: true, roles: ['CUSTOMER', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
                 },
                 {
                     path: 'order-by-user',
                     name: 'OrderOfUSer',
                     component: OrderOfUSer,
-                    meta: { requiresAuth: true, roles: ['CUSTOMER', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
                 },
                 {
                     path: 'order-detail/:id',
                     name: 'OrderDetailByUser',
                     component: OrderDetailByUser,
-                    meta: { requiresAuth: true, roles: ['CUSTOMER', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
                 },
                 {
                     path: 'user-profile',
                     name: 'UserProfile',
                     component: UserProfile,
-                    meta: { requiresAuth: true, roles: ['CUSTOMER', 'PARTNER'] }
-                },
-                {
-                    path: 'shop-register',
-                    name: 'ShopRegisterPage',
-                    component: ShopRegisterPage,
-                    meta: { requiresAuth: true, roles: ['CUSTOMER', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
                 }
             ]
         },
@@ -133,31 +127,37 @@ const router = createRouter({
                     path: 'product',
                     name: 'product',
                     component: Product,
-                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN'] }
                 },
                 {
                     path: 'product-detail/:id',
                     name: 'ProductDetailPage',
                     component: ProductDetailPage,
-                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN'] }
                 },
                 {
                     path: 'create-product',
                     name: 'CreateProduct',
                     component: ProductDetailPage,
-                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN'] }
                 },
                 {
                     path: 'order',
                     name: 'order',
                     component: Order,
-                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN'] }
                 },
                 {
                     path: 'orders-detail/:id',
                     name: 'OrderDetailPage',
                     component: OrderDetailPage,
-                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN', 'PARTNER'] }
+                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN'] }
+                },
+                {
+                    path: 'chat',
+                    name: 'AdminChat',
+                    component: AdminChat,
+                    meta: { requiresAuth: true, roles: ['STAFF', 'ADMIN'] }
                 }
             ]
         },
@@ -174,7 +174,7 @@ const router = createRouter({
     ]
 })
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
     const isAuth = authService.isAuthenticated();
     const role = authService.getRole(); // ADMIN | STAFF | CUSTOMER
 
@@ -189,15 +189,14 @@ router.beforeEach((to, from, next) => {
             // Redirect based on role
             if (role === 'CUSTOMER') {
                 return next({ path: '/customer/home' });
+            } else {
+                return next({ path: '/admin/dashboard' });
             }
-            if (role === 'PARTNER') {
-                return next({ path: '/admin/product' });
-            }
-            return next({ path: '/admin/dashboard' });
         }
 
         // Check role permissions
-        if (to.meta.roles && !to.meta.roles.includes(role)) {
+        const allowedRoles = Array.isArray(to.meta.roles) ? (to.meta.roles as string[]) : [];
+        if (allowedRoles.length > 0 && (!role || !allowedRoles.includes(role))) {
             return next({ path: '/403' });
         }
 
@@ -215,7 +214,7 @@ router.beforeEach((to, from, next) => {
 });
 
 router.afterEach((to) => {
-    document.title = to.meta.title ?? 'App'
+    document.title = typeof to.meta.title === 'string' ? to.meta.title : 'App'
 })
 
 export default router

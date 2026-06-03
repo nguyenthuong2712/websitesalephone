@@ -1,36 +1,34 @@
-import axios from 'axios';
-import { authService } from "../service/AuthService.ts";
+import axios from 'axios'
+import router from '../router'
+import { authService } from '../service/AuthService'
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_ROOT_API + '/api',
-});
+    baseURL: `${import.meta.env.VITE_ROOT_API}/api`,
+})
 
-// ADD TOKEN VÀO REQUEST
 api.interceptors.request.use(
-    config => {
-        const token = authService.getToken();
+    (config) => {
+        const token = authService.getToken()
         if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+            config.headers.Authorization = `Bearer ${token}`
         }
-        return config;
+        return config
     },
-    error => Promise.reject(error)
-);
+    (error) => Promise.reject(error),
+)
 
 api.interceptors.response.use(
-    response => response,
-
-    error => {
+    (response) => response,
+    async (error) => {
         if (error.response?.status === 401) {
-            authService.removeTokenAndRole();
-
+            authService.removeTokenAndRole()
             if (router.currentRoute.value.path !== '/login') {
-                router.push('/login');
+                await router.push('/login')
             }
         }
 
-        return Promise.reject(error);
-    }
-);
+        return Promise.reject(error)
+    },
+)
 
-export default api;
+export default api

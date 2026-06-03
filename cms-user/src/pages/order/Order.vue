@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import {ref, onMounted, computed, watch} from "vue";
+import { ref, onMounted, watch } from 'vue';
 import {orderService} from "@/service/OrderService";
-import {Search} from "@/models/Search.ts";
-import {formatCurrency} from "@/utils/Constant.ts";
+import { Search } from '@/models/Search';
+import { formatCurrency } from '@/utils/Constant';
 
 const orders = ref<any>();
 const page = ref<number>(1);
@@ -19,18 +19,19 @@ const countDelivered = ref(0);
 const countCompleted = ref(0);
 const countCancelled = ref(0);
 
-const countMap = {
+type OrderStatus = 'ALL' | 'PENDING' | 'CONFIRMED' | 'SHIPPING' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED'
+
+const countMap: Record<OrderStatus, typeof countAll> = {
   ALL: countAll,
   PENDING: countPending,
   CONFIRMED: countConfirmed,
   SHIPPING: countShipping,
   DELIVERED: countDelivered,
   COMPLETED: countCompleted,
-  CANCELLED: countCancelled
+  CANCELLED: countCancelled,
 };
 
-
-const countOrderByStaff = async (status: string) => {
+const countOrderByStaff = async (status: OrderStatus) => {
   const req = {
     userId: '',
     status: status
@@ -38,27 +39,18 @@ const countOrderByStaff = async (status: string) => {
 
   try {
     const res = await orderService.countOrderByStaff(req);
-
-    if (countMap[status]) {
-      countMap[status].value = res.data.data;
-    }
-
-  } catch (err: any) {
-    console.log(err);
+    countMap[status].value = Number(res.data.data ?? 0);
+  } catch (err) {
+    console.error('Count order by staff error', err);
   }
 };
 
-const callSearch = async (status: string) => {
+const callSearch = async (status: '' | OrderStatus) => {
   activeStatus.value = status;
   const search = new Search(page.value, size.value, searchText.value, status);
   const res = await orderService.search(search);
   orders.value = res.data.data;
-  totalPages.value = res.data.total || 0;
-};
-
-const onSearch = () => {
-  page.value = 1;
-  callSearch('');
+  totalPages.value = Number(res.data.data?.totalPages ?? 1);
 };
 
 const onPageChange = (newPage: number) => {

@@ -1,12 +1,14 @@
 package org.example.websitesalephone.service.order.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 import org.example.websitesalephone.auth.UserDetail;
 import org.example.websitesalephone.comon.CommonResponse;
 import org.example.websitesalephone.comon.PageResponse;
 import org.example.websitesalephone.dto.order.*;
 import org.example.websitesalephone.entity.Order;
 import org.example.websitesalephone.entity.OrderStatusHistory;
+import org.example.websitesalephone.entity.Product;
 import org.example.websitesalephone.entity.User;
 import org.example.websitesalephone.enums.OrderStatus;
 import org.example.websitesalephone.enums.RoleEnums;
@@ -44,23 +46,16 @@ public class OrderServiceImpl implements OrderService {
     private final ProductRepository productRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public CommonResponse search(OrderSearch searchForm) {
 
         PageRequest pageRequest = Utils.getPaging(searchForm);
 
         Specification<Order> spec = OrderSpecification.search(searchForm);
-        User loginUser = getCurrentUser();
-        String sellerId = null;
 
-        if (isStaff(loginUser)) {
-            sellerId = loginUser.getId();
-            spec = spec.and(sellerOrderScope(sellerId));
-        }
-
-        final String scopedSellerId = sellerId;
         Page<OrderResponse> result = orderRepository
                 .findAll(spec, pageRequest)
-                .map(order -> scopedSellerId == null ? OrderResponse.fromOrder(order) : OrderResponse.fromSellerOrder(order, scopedSellerId));
+                .map(OrderResponse::fromOrder);
 
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
@@ -69,15 +64,31 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CommonResponse detail(String id) {
-        Order order = orderRepository.findById(id).orElse(null);
+        User loginUser = getAuthenticatedUser();
+        if (loginUser == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập")
+                    .build();
+        }
 
+        Order order = orderRepository.findById(id).orElse(null);
         if (order == null) {
             return CommonResponse.builder()
-                    .code(CommonResponse.CODE_SUCCESS)
+                    .code(CommonResponse.CODE_NOT_FOUND)
                     .message("Order not found")
                     .build();
         }
+
+        if (isCustomer(loginUser) && !Objects.equals(order.getCustomer().getId(), loginUser.getId())) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Bạn không có quyền xem đơn hàng này")
+                    .build();
+        }
+
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
                 .data(OrderDetailResponse.fromEntity(order))
@@ -87,17 +98,11 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse update(OrderRequest orderRequest) {
-
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        UserDetail userDetail = (UserDetail) auth.getPrincipal();
-
-        User loginUser = userRepository.findByUsernameAndIsDeleted(userDetail.getLoginId(), false)
-                .orElse(null);
-
+        User loginUser = getAuthenticatedUser();
         if (loginUser == null) {
             return CommonResponse.builder()
-                    .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("User not found")
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập")
                     .build();
         }
 
@@ -151,9 +156,33 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CommonResponse getListHistory(String id) {
-        List<OrderStatusHistory> statusHistories = orderStatusHistoryRepository.findByOrder_id(id);
+        User loginUser = getAuthenticatedUser();
+        if (loginUser == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập")
+                    .build();
+        }
 
+        Order order = orderRepository.findById(id).orElse(null);
+        if (order == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_NOT_FOUND)
+                    .data(new ArrayList<>())
+                    .message("Order not found")
+                    .build();
+        }
+
+        if (isCustomer(loginUser) && !Objects.equals(order.getCustomer().getId(), loginUser.getId())) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Bạn không có quyền xem lịch sử đơn hàng này")
+                    .build();
+        }
+
+        List<OrderStatusHistory> statusHistories = orderStatusHistoryRepository.findByOrder_id(id);
         if (statusHistories.isEmpty()) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
@@ -171,10 +200,30 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public CommonResponse getListOrderByUser(OrderByUserRequest orderByUserRequest) {
-        Specification<Order> spec = OrderSpecification.search(orderByUserRequest);
+        User loginUser = getAuthenticatedUser();
+        if (loginUser == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập")
+                    .build();
+        }
 
-        List<OrderResponse> orderList = orderRepository.findAll(spec).stream().map(OrderResponse::fromOrder).toList();
+        if (isCustomer(loginUser) && StringUtils.isNotBlank(orderByUserRequest.getId())
+                && !Objects.equals(orderByUserRequest.getId(), loginUser.getId())) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Bạn không có quyền xem danh sách đơn hàng này")
+                    .build();
+        }
+
+        Specification<Order> spec = OrderSpecification.search(orderByUserRequest);
+        List<OrderResponse> orderList = orderRepository.findAll(spec).stream()
+                .filter(order -> !isCustomer(loginUser) || Objects.equals(order.getCustomer().getId(), loginUser.getId()))
+                .map(OrderResponse::fromOrder)
+                .toList();
+
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
                 .data(orderList.isEmpty() ? new ArrayList<>() : orderList)
@@ -183,8 +232,34 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public CommonResponse countOrderByUser(CountOrderRequest countOrderRequest) {
-        int countByStatusAndCustomerId = orderRepository.countByStatusAndCustomer_Id(countOrderRequest.getStatus(), countOrderRequest.getUserId());
-        int countByCustomerId = orderRepository.countByCustomer_Id(countOrderRequest.getUserId());
+        User loginUser = getAuthenticatedUser();
+        if (loginUser == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập")
+                    .build();
+        }
+
+        String userId = countOrderRequest.getUserId();
+        if (isCustomer(loginUser)) {
+            if (StringUtils.isNotBlank(userId) && !Objects.equals(userId, loginUser.getId())) {
+                return CommonResponse.builder()
+                        .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                        .message("Bạn không có quyền xem thống kê của người dùng khác")
+                        .build();
+            }
+            userId = loginUser.getId();
+        }
+
+        if (StringUtils.isBlank(userId)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Thiếu thông tin người dùng")
+                    .build();
+        }
+
+        int countByStatusAndCustomerId = orderRepository.countByStatusAndCustomer_Id(countOrderRequest.getStatus(), userId);
+        int countByCustomerId = orderRepository.countByCustomer_Id(userId);
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
                 .data(Objects.equals(countOrderRequest.getStatus(), "ALL") ? countByCustomerId : countByStatusAndCustomerId)
@@ -193,22 +268,37 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public CommonResponse countOrderByStaff(CountOrderRequest req) {
-        User loginUser = getCurrentUser();
-
+        User loginUser = getAuthenticatedUser();
         if (loginUser == null) {
             return CommonResponse.builder()
-                    .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("User not found")
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập")
                     .build();
         }
 
+        if (loginUser.getRole() == null || (loginUser.getRole().getRoleEnums() != RoleEnums.ADMIN
+                && loginUser.getRole().getRoleEnums() != RoleEnums.STAFF)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Bạn không có quyền xem thống kê này")
+                    .build();
+        }
+
+        if (StringUtils.isBlank(req.getStatus())) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Thiếu trạng thái đơn hàng")
+                    .build();
+        }
+
+
+
         boolean isAdmin = loginUser.getRole().getRoleEnums() == RoleEnums.ADMIN;
-        String status = req.getStatus() == null ? "ALL" : req.getStatus();
-        boolean isAll = "ALL".equals(status);
+        boolean isAll = "ALL".equals(req.getStatus());
 
         if (isAdmin) {
             int total = orderRepository.countAllByIsDeletedFalse();
-            int byStatus = orderRepository.countByStatus(status);
+            int byStatus = orderRepository.countByStatus(req.getStatus());
 
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_SUCCESS)
@@ -216,41 +306,57 @@ public class OrderServiceImpl implements OrderService {
                     .build();
         }
 
-        int totalBySeller = orderRepository.countBySellerIdAndStatus(loginUser.getId(), "ALL");
-        int byStatusAndSeller = orderRepository.countBySellerIdAndStatus(loginUser.getId(), status);
+        // Staff
+        int totalByStaff = orderRepository.countByStaff_Id(loginUser.getId());
+        int byStatusAndStaff = orderRepository.countByStatusAndStaff_Id(req.getStatus(), loginUser.getId());
 
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
-                .data(isAll ? totalBySeller : byStatusAndSeller)
+                .data(isAll ? totalByStaff : byStatusAndStaff)
                 .build();
     }
 
     @Override
     public CommonResponse countDashBoard(String searchText) {
-        User loginUser = getCurrentUser();
+        User loginUser = getAuthenticatedUser();
+        if (loginUser == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập")
+                    .build();
+        }
+
+        if (loginUser.getRole() == null || (loginUser.getRole().getRoleEnums() != RoleEnums.ADMIN
+                && loginUser.getRole().getRoleEnums() != RoleEnums.STAFF)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Bạn không có quyền xem thống kê này")
+                    .build();
+        }
+
         Object result;
 
-        if (isStaff(loginUser)) {
-            switch (searchText) {
-                case "PRODUCT" -> result = productRepository.countSellableProductsBySellerId(loginUser.getId());
-                case "ORDER" -> result = orderRepository.countBySellerIdAndStatus(loginUser.getId(), "ALL");
-                case "CUSTOMER" -> result = 0;
-                case "CANCELLED" -> result = orderRepository.countBySellerIdAndStatus(loginUser.getId(), "CANCELLED");
-                case "REVENUE" -> result = orderRepository.getRevenueBySellerId(loginUser.getId());
-                default -> {
-                    return dashboardMetricNotFound();
-                }
+        switch (searchText) {
+            case "PRODUCT" -> {
+                result = productRepository.countByIsDeletedFalse();
             }
-        } else {
-            switch (searchText) {
-                case "PRODUCT" -> result = productRepository.countByVariantsIsNotEmpty();
-                case "ORDER" -> result = orderRepository.countAllByIsDeletedFalse();
-                case "CUSTOMER" -> result = userRepository.countByIsDeletedFalse();
-                case "CANCELLED" -> result = orderRepository.countByStatus("CANCELLED");
-                case "REVENUE" -> result = orderRepository.getRevenueByStatus();
-                default -> {
-                    return dashboardMetricNotFound();
-                }
+            case "ORDER" -> {
+                result = orderRepository.countAllByIsDeletedFalse();
+            }
+            case "CUSTOMER" -> {
+                result = userRepository.countByIsDeletedFalse();
+            }
+            case "CANCELLED" -> {
+                result = orderRepository.countByStatus("CANCELLED");
+            }
+            case "REVENUE" -> {
+                result = orderRepository.getRevenueByStatus();
+            }
+            default -> {
+                return CommonResponse.builder()
+                        .code(CommonResponse.CODE_NOT_FOUND)
+                        .message("Loại thống kê không tồn tại")
+                        .build();
             }
         }
 
@@ -260,42 +366,15 @@ public class OrderServiceImpl implements OrderService {
                 .build();
     }
 
-    private User getCurrentUser() {
+    private User getAuthenticatedUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof UserDetail userDetail)) {
             return null;
         }
-
         return userRepository.findByUsernameAndIsDeleted(userDetail.getLoginId(), false).orElse(null);
     }
 
-    private boolean isStaff(User user) {
-        return user != null
-                && user.getRole() != null
-                && user.getRole().getRoleEnums() == RoleEnums.STAFF;
-    }
-
-    private Specification<Order> sellerOrderScope(String sellerId) {
-        return (root, query, cb) -> {
-            if (query != null) {
-                query.distinct(true);
-            }
-            return cb.equal(
-                    root.join("orderItems")
-                            .join("productVariant")
-                            .join("product")
-                            .join("shopRegistration")
-                            .join("user")
-                            .get("id"),
-                    sellerId
-            );
-        };
-    }
-
-    private CommonResponse dashboardMetricNotFound() {
-        return CommonResponse.builder()
-                .code(CommonResponse.CODE_NOT_FOUND)
-                .message("Loại thống kê không tồn tại")
-                .build();
+    private boolean isCustomer(User user) {
+        return user.getRole() != null && user.getRole().getRoleEnums() == RoleEnums.CUSTOMER;
     }
 }

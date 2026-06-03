@@ -6,9 +6,9 @@ import lombok.experimental.FieldNameConstants;
 import org.example.websitesalephone.entity.Product;
 import org.example.websitesalephone.entity.ProductImage;
 import org.example.websitesalephone.entity.ProductVariant;
+import org.example.websitesalephone.enums.ProductStatus;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.List;
 
 @Data
@@ -22,12 +22,6 @@ public class ProductListResponse {
 
     private String productName;
 
-    private String location;
-
-    private String storage;
-
-    private String deviceMake;
-
     private String originName;
 
     private BigDecimal price;
@@ -37,52 +31,59 @@ public class ProductListResponse {
     private int quantity;
 
     private String status;
-    private String shopId;
-    private String shopName;
-    private String shopOwnerId;
 
     private List<ProductImageResponse> responseList;
 
     public static ProductListResponse fromEntity(Product entity) {
-        int totalQuantity = entity.getVariants().stream()
+        List<ProductVariant> variants = entity.getVariants() == null ? List.of() : entity.getVariants();
+
+        int totalQuantity = variants.stream()
                 .mapToInt(ProductVariant::getQuantity)
                 .sum();
 
-        int totalQuantitySold = entity.getVariants().stream()
+        int totalQuantitySold = variants.stream()
                 .mapToInt(ProductVariant::getQuantityUnitSold)
                 .sum();
 
-        BigDecimal averagePrice = BigDecimal.ZERO;
+//        BigDecimal averagePrice = BigDecimal.ZERO;
 
-        if (!entity.getVariants().isEmpty()) {
-            averagePrice = entity.getVariants().stream()
-                    .map(ProductVariant::getPrice)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .divide(new BigDecimal(entity.getVariants().size()), 2, RoundingMode.HALF_UP);
-        }
+//        if (!entity.getVariants().isEmpty()) {
+//            averagePrice = entity.getVariants().stream()
+//                    .map(ProductVariant::getPrice)
+//                    .reduce(BigDecimal.ZERO, BigDecimal::add)
+//                    .divide(new BigDecimal(entity.getVariants().size()), 2, RoundingMode.HALF_UP);
+//        }
 
         String imageUrl = entity.getImages().stream()
-                .filter(ProductImage::isActive)
-                .findFirst()
+                .filter(image -> !image.isDeleted())
+                .sorted((left, right) -> Boolean.compare(right.isActive(), left.isActive()))
                 .map(ProductImage::getUrl)
+                .findFirst()
                 .orElse(null);
+
+        String statusCode = entity.getStatus() == null ? null : entity.getStatus().getCode();
+        if (totalQuantity <= 0 && ProductStatus.ACTIVE.getCode().equals(statusCode)) {
+            statusCode = ProductStatus.OUT_OF_STOCK.getCode();
+        }
+
+        BigDecimal displayPrice = entity.getPrice();
+        if (displayPrice == null || displayPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            displayPrice = variants.stream()
+                    .filter(v -> !v.isDeleted() && v.getPrice() != null)
+                    .map(ProductVariant::getPrice)
+                    .min(BigDecimal::compareTo)
+                    .orElse(BigDecimal.ZERO);
+        }
 
         return ProductListResponse.builder()
                 .id(entity.getId())
                 .url(imageUrl)
                 .productName(entity.getName())
-                .location(entity.getLocation())
-                .storage(entity.getStorage())
-                .deviceMake(entity.getDeviceMake())
-                .originName(entity.getVariants().isEmpty() ? null
-                        : entity.getVariants().getFirst().getOrigin().getName())
-                .price(averagePrice)
+                .originName(variants.isEmpty() ? null : variants.getFirst().getOrigin().getName())
+                .price(displayPrice)
                 .quantity(totalQuantity)
                 .quantityUnitSold(totalQuantitySold)
-                .status(entity.getStatus().getCode())
-                .shopId(entity.getShopRegistration() == null ? null : entity.getShopRegistration().getId())
-                .shopName(entity.getShopRegistration() == null ? null : entity.getShopRegistration().getShopName())
-                .shopOwnerId(entity.getShopRegistration() == null ? null : entity.getShopRegistration().getUser().getId())
+                .status(statusCode)
                 .build();
     }
 }

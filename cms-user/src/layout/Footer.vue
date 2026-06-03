@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ArrowUp, PhoneCall, MessageCircle } from '@lucide/vue';
+import { chatUnreadCount, toggleChat } from '@/utils/chatState';
 
 const scrollToTop = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -149,12 +150,15 @@ const scrollToTop = () => {
       <button class="float-btn scroll-top-btn" @click="scrollToTop" aria-label="Lên đầu trang">
         <ArrowUp :size="20" />
       </button>
-      <a href="tel:19006626" class="float-btn hotline-btn" aria-label="Gọi hotline">
-        <PhoneCall :size="18" class="hotline-icon" />
-        <span class="hotline-hover-text">HOTLINE</span>
-      </a>
-      <button class="float-btn chat-btn" aria-label="Chat hỗ trợ">
+     
+      <button
+        class="float-btn chat-btn"
+        @click="toggleChat"
+        :class="{ 'has-unread': chatUnreadCount > 0 }"
+        aria-label="Chat hỗ trợ"
+      >
         <MessageCircle :size="20" />
+        <span v-if="chatUnreadCount > 0" class="unread-badge">{{ chatUnreadCount }}</span>
       </button>
     </div>
   </footer>
@@ -471,6 +475,36 @@ const scrollToTop = () => {
 
 .hotline-btn:hover .hotline-hover-text {
   opacity: 1;
+}
+
+.unread-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: #ff3b30;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  border-radius: 10px;
+  padding: 1px 5px;
+  border: 1.5px solid #191919;
+}
+
+.chat-btn.has-unread {
+  animation: pulse 2s infinite;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
 }
 
 /* Responsiveness */

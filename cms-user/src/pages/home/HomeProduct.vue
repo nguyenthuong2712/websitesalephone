@@ -32,7 +32,6 @@ const loadProducts = async () => {
     products.value = res.data.data.content || [];
     totalPages.value = Number(res.data.data.totalPages ?? 1);
 
-    console.log("📄 Fetched page:", page.value, "totalPages:", totalPages.value);
   } catch (error) {
     console.error("Lỗi khi load sản phẩm:", error);
   }

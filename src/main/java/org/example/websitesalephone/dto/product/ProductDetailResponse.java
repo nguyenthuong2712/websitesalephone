@@ -17,12 +17,6 @@ public class ProductDetailResponse {
     private String id;
     private String productName;
     private String description;
-    private String location;
-    private String storage;
-    private String deviceMake;
-    private String shopId;
-    private String shopName;
-    private String shopOwnerId;
     private BigDecimal price;
     private List<DynamicResponse> colors;
     private List<DynamicResponse> cameras;
@@ -49,13 +43,7 @@ public class ProductDetailResponse {
                 .id(product.getId())
                 .productName(product.getName())
                 .description(product.getDescription())
-                .location(product.getLocation())
-                .storage(product.getStorage())
-                .deviceMake(product.getDeviceMake())
-                .shopId(product.getShopRegistration() == null ? null : product.getShopRegistration().getId())
-                .shopName(product.getShopRegistration() == null ? null : product.getShopRegistration().getShopName())
-                .shopOwnerId(product.getShopRegistration() == null ? null : product.getShopRegistration().getUser().getId())
-                .price(variant.getPrice())
+                .price(product.getPrice() != null && product.getPrice().compareTo(BigDecimal.ZERO) > 0 ? product.getPrice() : variant.getPrice())
                 .responseList(responseList.isEmpty() ? null : responseList)
                 .colors(removeDuplicate(productVariants.stream()
                         .map(v -> new DynamicResponse(v.getColor().getId(), v.getColor().getName()))

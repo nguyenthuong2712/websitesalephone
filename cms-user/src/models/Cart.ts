@@ -19,7 +19,7 @@ export interface CartResponse {
 }
 
 export class ProductInCartModel implements ProductInCart {
-    idCartItem: "";
+    idCartItem = "";
     productId = "";
     productName = "";
     quantity = 0;

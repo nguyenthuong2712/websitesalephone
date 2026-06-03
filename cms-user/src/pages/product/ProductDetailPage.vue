@@ -1,334 +1,444 @@
 <script setup lang="ts">
-import {ref, onMounted} from "vue";
-import {dynamicService} from "@/service/DynamicService";
-import {productService} from "@/service/ProductService"; // ⬅️ THÊM DÒNG NÀY
-import type {DynamicSearch} from "@/models/DynamicSearch";
-import {toast} from "vue3-toastify";
-import {ProductVariantRequest} from "@/models/ProductVariantRequest.ts";
-import {getContrastColor} from "@/utils/Constant.ts";
-import {ProductImageRequest} from "@/models/ProductImageRequest.ts";
-import {useRoute} from "vue-router";
-import {productImageService} from "@/service/ProductImageService.ts";
-import {ProductDetailRequest} from "@/models/ProductDetailRequest";
-import {ProductRequest} from "@/models/ProductRequest";
+import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import { toast } from 'vue3-toastify'
+import { dynamicService } from '@/service/DynamicService'
+import { productService } from '@/service/ProductService'
+import { productImageService } from '@/service/ProductImageService'
+import { ProductVariantRequest } from '@/models/ProductVariantRequest'
+import { ProductRequest } from '@/models/ProductRequest'
+import { ProductImageRequest } from '@/models/ProductImageRequest'
+import { DynamicSearch } from '@/models/DynamicSearch'
+import type { CommonResponse } from '@/utils/CommonResponse'
+import { getContrastColor } from '@/utils/Constant'
 
-const route = useRoute();
-const productIdRouter = ref(route.params.id as string) || null;
+const route = useRoute()
+const productIdRouter = ref((route.params.id as string) ?? '')
 
-// STATE -------------------------------------
-const loading = ref(false);
-const error = ref("");
-const results = ref<any[]>([]);
-const resultsImage = ref<any[]>([]);
+type DynamicOption = { id: string; name: string }
+type ProductVariantDetailState = {
+  quantity: number
+  price: number
+  colorId: string
+  cameraId: string
+  screenId: string
+  originId: string
+  ramId: string
+}
 
-// FORM STATE --------------------------------
-const productName = ref("");
-const status = ref("");
-const productDescription = ref("");
-const location = ref("");
-const storage = ref("");
-const deviceMake = ref("");
-const createProductResponse = ref<CommonResponse<any> | null>(null);
-const createProductDetailResponse = ref<any[]>([]);
-const createProductImageResponse = ref<any[]>([]);
-const productDetailList = ref<any[]>([]);
-const productVariantDetail = ref<any>({});
+type ProductVariantRow = {
+  idProduct: string
+  productName: string
+  description: string
+  quantity: number
+  price: number
+  screenName: string
+  ramName: string
+  cameraName: string
+  colorName: string
+  originName: string
+}
 
-const ramList = ref([]);
-const cameraList = ref([]);
-const originList = ref([]);
-const colorList = ref([]);
-const screenList = ref([]);
+type ProductImageRow = {
+  id?: string
+  productImageId?: string
+  url?: string
+  active?: boolean
+}
 
-const description = ref("");
+const loading = ref(false)
+const error = ref('')
+const results = ref<DynamicOption[]>([])
+const resultsImage = ref<ProductImageRow[]>([])
 
-const productImageId = ref("");
-const url = ref("");
-const isActive = ref(true);
+const productName = ref('')
+const productDescription = ref('')
+const createProductResponse = ref<CommonResponse<Record<string, unknown>> | null>(null)
+const createProductDetailResponse = ref<unknown[]>([])
+const createProductImageResponse = ref<unknown[]>([])
+const productDetailList = ref<ProductVariantRow[]>([])
+const productVariantDetail = ref<ProductVariantDetailState>({
+  quantity: 0,
+  price: 0,
+  colorId: '',
+  cameraId: '',
+  screenId: '',
+  originId: '',
+  ramId: '',
+})
 
-// REQUEST MODEL ------------------------------
-const searchRequest = ref<DynamicSearch>({
-  keyword: "",
-  page: 1,
-  size: 10
-});
+const ramList = ref<DynamicOption[]>([])
+const cameraList = ref<DynamicOption[]>([])
+const originList = ref<DynamicOption[]>([])
+const colorList = ref<DynamicOption[]>([])
+const screenList = ref<DynamicOption[]>([])
 
-// FETCH FUNCTION -----------------------------
-const fetchData = async (type) => {
-  loading.value = true;
-  error.value = "";
+const productImageId = ref('')
+const url = ref('')
+const isActive = ref(true)
+
+const searchRequest = ref(new DynamicSearch('RAM'))
+
+const fetchData = async (type: string) => {
+  loading.value = true
+  error.value = ''
 
   try {
-    searchRequest.value.dynamicEnum = type;
-
-    const res = await dynamicService.search(searchRequest.value);
-    results.value = res.data.data || [];
+    searchRequest.value = new DynamicSearch(type)
+    const res = await dynamicService.search(searchRequest.value)
+    results.value = res.data.data || []
   } catch (err) {
-    console.error(err);
-    error.value = "Không lấy được dữ liệu. Vui lòng thử lại.";
+    console.error(err)
+    error.value = 'Không lấy được dữ liệu. Vui lòng thử lại.'
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
+}
+
+const getWorkingProductId = (): string => {
+  const createdId = createProductResponse.value?.data?.id
+  return typeof createdId === 'string' && createdId.length > 0 ? createdId : productIdRouter.value
+}
 
 const fetchDataImage = async (productId: string) => {
-
   try {
-    const res = await productService.getAllImage(productId);
-    resultsImage.value = res.data.data;
+    const res = await productService.getAllImage(productId)
+    resultsImage.value = res.data.data || []
   } catch (err) {
-    console.error(err);
-    error.value = "Không lấy được dữ liệu. Vui lòng thử lại.";
+    console.error(err)
+    error.value = 'Không lấy được dữ liệu. Vui lòng thử lại.'
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
+}
 
-// SEARCH ON ENTER -----------------------------
-const handleEnter = (e: KeyboardEvent) => {
-  if (e.key === "Enter") fetchData();
-};
-
-// 🔥 ACTION 1: CREATE PRODUCT -------------------
 const handleCreateProduct = async () => {
   try {
-    const req = {
+    const req = new ProductRequest({
       name: productName.value,
       description: productDescription.value,
-      location: location.value,
-      storage: storage.value,
-      deviceMake: deviceMake.value,
-      status: status.value
-    };
+    })
 
-    const res = await productService.createProduct(req);
+    const res = await productService.createProduct(req)
     if (res.data.code === 0) {
-      createProductResponse.value = res.data;
-      toast.success("Tạo sản phẩm thành công!");
+      createProductResponse.value = res.data
+      toast.success('Tạo sản phẩm thành công!')
+      await loadAllProductDetail()
     } else {
-      toast.error("Tạo sản phẩm không thành công!");
+      toast.error('Tạo sản phẩm không thành công!')
     }
   } catch (e) {
-    toast.error(e);
+    console.error(e)
+    toast.error('Tạo sản phẩm thất bại')
   }
-};
+}
+
+const resetVariantForm = () => {
+  productVariantDetail.value = {
+    quantity: 0,
+    price: 0,
+    colorId: '',
+    cameraId: '',
+    screenId: '',
+    originId: '',
+    ramId: '',
+  }
+}
 
 const handleCreateProductDetail = async () => {
-  const id = createProductResponse?.value?.data.id || productIdRouter?.value;
-
-  if (!id) return;
+  const id = getWorkingProductId()
+  if (!id) return
 
   try {
     const request = new ProductVariantRequest({
       productName: productName.value,
-      description: description.value,
+      description: productDescription.value,
       quantity: productVariantDetail.value.quantity,
       price: productVariantDetail.value.price,
-
       idProduct: id,
       colorId: productVariantDetail.value.colorId,
       cameraId: productVariantDetail.value.cameraId,
       screenId: productVariantDetail.value.screenId,
       originId: productVariantDetail.value.originId,
-      ramId: productVariantDetail.value.ramId
-    });
-    console.log(request)
+      ramId: productVariantDetail.value.ramId,
+    })
 
-    const payload = request.toPayload();
-    const res = await productService.createProductDetail(payload);
+    const res = await productService.createProductDetail(request)
     if (res.data.code === 0) {
-      createProductDetailResponse.value.push(res.data.data);
-
-      toast.success("Tạo biến thể thành công!");
-      loadAllProductDetail()
-      productVariantDetail.value.colorId = '';
-      productVariantDetail.value.cameraId = '';
-      productVariantDetail.value.screenId = '';
-      productVariantDetail.value.originId = '';
-      productVariantDetail.value.ramId = '';
-      productVariantDetail.value.quantity = 0;
-      productVariantDetail.value.price = 0;
+      createProductDetailResponse.value.push(res.data.data)
+      toast.success('Tạo biến thể thành công!')
+      await loadAllProductDetail()
+      resetVariantForm()
     } else {
-      toast.error("Không thể tạo biến thể");
+      toast.error('Không thể tạo biến thể')
     }
   } catch (e) {
-    console.error(e);
-    toast.error("Không thể tạo biến thể");
+    console.error(e)
+    toast.error('Không thể tạo biến thể')
   }
-};
+}
 
-const loadDynamic = async (type) => {
-  await fetchData(type);
-  return results.value;
-};
+const loadDynamic = async (type: string): Promise<DynamicOption[]> => {
+  await fetchData(type)
+  return [...results.value]
+}
 
 const handleCreateProductImage = async () => {
-  const id = createProductResponse?.value?.data.id || productIdRouter?.value;
+  const id = getWorkingProductId()
+  if (!id) return
 
-  if (!id) return;
   try {
     const request = new ProductImageRequest({
       productImageId: productImageId.value,
       productId: id,
       url: url.value,
       isActive: true,
-    });
+    })
 
-    const payload = request.toPayload();
-    const res = await productService.createImage(payload);
+    const res = await productService.createImage(request)
     if (res.data.code === 0) {
-      createProductImageResponse.value.push(res.data.data);
-      fetchDataImage(id)
-      url.value = null;
-      toast.success("Thêm ảnh thành công!");
+      createProductImageResponse.value.push(res.data.data)
+      await fetchDataImage(id)
+      url.value = ''
+      toast.success('Thêm ảnh thành công!')
     } else {
-      toast.error("Không thể thêm ảnh");
+      toast.error('Không thể thêm ảnh')
     }
   } catch (e) {
-    console.error(e);
-    toast.error("Không thể thêm ảnh");
+    console.error(e)
+    toast.error('Không thể thêm ảnh')
   }
-};
-
-const handleUpdateProduct = async () => {
-  const id = createProductResponse?.value?.data.id || productIdRouter?.value;
-
-  if (!id) return;
-  try {
-    const request = new ProductRequest({
-      idProduct: id,
-      productName: productName.value,
-      description: productDescription.value,
-      location: location.value,
-      storage: storage.value,
-      deviceMake: deviceMake.value,
-      status: status.value,
-    });
-
-    const payload = request.toPayload();
-    const res = await productService.update(payload);
-    if (res.data.code === 0) {
-      loadAllProductDetail()
-      toast.success("update thành công!");
-    } else {
-      toast.error("Không thể cập nhập ");
-    }
-  } catch (e) {
-    console.error(e);
-    toast.error("Không thể cập nhập ");
-  }
-};
+}
 
 const loadAllProductDetail = async () => {
-  const id = createProductResponse?.value?.data.id || productIdRouter?.value;
+  const id = getWorkingProductId()
+  if (!id) return
 
-  if (!id) return;
-
-  const res = await productService.getAllProductVariant(id);
-  productDetailList.value = res.data.data;
-  if (id) {
-    productName.value = productDetailList.value[0]?.productName;
-    productDescription.value = productDetailList.value[0]?.description;
-    location.value = productDetailList.value[0]?.location;
-    storage.value = productDetailList.value[0]?.storage;
-    deviceMake.value = productDetailList.value[0]?.deviceMake;
-    status.value = productDetailList.value[0]?.status;
+  const res = await productService.getAllProductVariant(id)
+  productDetailList.value = res.data.data || []
+  if (productDetailList.value.length > 0) {
+    productName.value = productDetailList.value[0]?.productName ?? productName.value
+    productDescription.value = productDetailList.value[0]?.description ?? productDescription.value
   }
-};
+}
 
 const loadProductVariantDetail = async (id: string) => {
-  const res = await productService.getProductVariantDetail(id);
+  const res = await productService.getProductVariantDetail(id)
   if (res.data.code === 0) {
-    productVariantDetail.value = res.data.data;
+    productVariantDetail.value = {
+      ...productVariantDetail.value,
+      ...res.data.data,
+    }
   }
-};
+}
 
 const loadProductImage = async () => {
-  const id = createProductResponse?.value?.data.id || productIdRouter?.value;
+  const id = getWorkingProductId()
+  if (!id) return
 
-  if (!id) return;
-
-  const res = await productImageService.getImagesByProduct(id);
-  resultsImage.value = res.data.data;
-
-};
+  const res = await productImageService.getImagesByProduct(id)
+  resultsImage.value = res.data.data || []
+}
 
 const setActiveImage = async (productImgId: string) => {
-  const id = createProductResponse?.value?.data.id || productIdRouter?.value;
+  const id = getWorkingProductId()
+  if (!id) return
 
-  if (!id) return;
   try {
     const request = new ProductImageRequest({
       productImageId: productImgId,
       productId: id,
       url: url.value,
       isActive: isActive.value,
-    });
+    })
 
-    const payload = request.toPayload();
-    const res = await productService.updateImage(payload);
-    createProductImageResponse.value.push(res.data.data);
-    fetchDataImage(id)
-    toast.success("Update thành công!");
+    const res = await productService.updateImage(request)
+    createProductImageResponse.value.push(res.data.data)
+    await fetchDataImage(id)
+    toast.success('Update thành công!')
   } catch (e) {
-    console.error(e);
-    toast.error("Update thất bại");
+    console.error(e)
+    toast.error('Update thất bại')
   }
 }
 
-const deleted = async (id: string) =>{
-  const res = await productService.deleteProductDetail(id);
+const deleted = async (id: string) => {
+  const res = await productService.deleteProductDetail(id)
   if (res.data.code === 0) {
-    toast.success("Xóa biến thể sản phẩm thành công")
-    loadAllProductDetail();
+    toast.success('Xóa biến thể sản phẩm thành công')
+    await loadAllProductDetail()
   } else {
-    toast.error("Xóa biến thể sản phẩm không thành công")
+    toast.error('Xóa biến thể sản phẩm không thành công')
   }
 }
 
-// ON LOAD --------------------------------------
 onMounted(async () => {
-  ramList.value = await loadDynamic("RAM");
-  screenList.value = await loadDynamic("SCREEN");
-  colorList.value = await loadDynamic("COLOR");
-  cameraList.value = await loadDynamic("CAMERA");
-  originList.value = await loadDynamic("ORIGIN");
-  if (productIdRouter.value !== null && productIdRouter.value !== undefined) {
-    loadAllProductDetail();
-    await loadProductImage();
+  ramList.value = await loadDynamic('RAM')
+  screenList.value = await loadDynamic('SCREEN')
+  colorList.value = await loadDynamic('COLOR')
+  cameraList.value = await loadDynamic('CAMERA')
+  originList.value = await loadDynamic('ORIGIN')
+  if (productIdRouter.value) {
+    await loadAllProductDetail()
+    await loadProductImage()
   }
-});
+})
 
-const deleteImage = async (id) => {
-  if (!id) return;
+const deleteImage = async (id: string) => {
+  if (!id) return
 
   try {
-    const res = await productService.deleteImage(id);
-
+    const res = await productService.deleteImage(id)
     if (res.data.code === 0) {
-      console.log(res)
-      toast.success("Xóa ảnh thành công!");
-      await loadProductImage();
+      toast.success('Xóa ảnh thành công!')
+      await loadProductImage()
     } else {
-      toast.error("Không thể xóa ảnh!");
+      toast.error('Không thể xóa ảnh!')
     }
-
   } catch (e) {
-    console.error(e);
-    toast.error("Lỗi kết nối khi xoá ảnh!");
-  }
-};
-
-const CreatedOrUpdate = async () => {
-  const id = productIdRouter?.value;
-
-  if (id) {
-    await handleUpdateProduct()
-  } else {
-    await handleCreateProduct()
+    console.error(e)
+    toast.error('Lỗi kết nối khi xoá ảnh!')
   }
 }
 
+const displayGallery = () => Boolean(createProductResponse.value?.code === 0 || productIdRouter.value)
+
+const displayDetailForm = () => Boolean(createProductResponse.value !== null || productIdRouter.value)
+
+const toDynamicId = (item: DynamicOption) => item.id
+const toDynamicName = (item: DynamicOption) => item.name
+
+const variantRowId = (item: ProductVariantRow) => item.idProduct
+
+const galleryImageId = (item: ProductImageRow) => item.id ?? item.productImageId ?? ''
+
+const galleryImageUrl = (item: ProductImageRow) => item.url ?? ''
+
+const galleryImageActive = (item: ProductImageRow) => Boolean(item.active)
+
+const galleryImageProductId = (item: ProductImageRow) => item.productImageId ?? ''
+
+const adminColorMap: Record<string, string> = {
+  BLACK: '#000000',
+  WHITE: '#FFFFFF',
+  RED: '#FF0000',
+  GREEN: '#00A651',
+  BLUE: '#0000FF',
+  YELLOW: '#FFFF00',
+  ORANGE: '#FFA500',
+  PURPLE: '#800080',
+  PINK: '#FFC0CB',
+  BROWN: '#8B4513',
+  GREY: '#808080',
+  GRAY: '#808080',
+  SILVER: '#C0C0C0',
+  GOLD: '#FFD700',
+  DEN: '#000000',
+  TRANG: '#FFFFFF',
+  DO: '#FF0000',
+  XANH: '#0000FF',
+  XANH_DUONG: '#0000FF',
+  XANH_LA: '#00A651',
+  VANG: '#FFD700',
+  CAM: '#FFA500',
+  TIM: '#800080',
+  HONG: '#FFC0CB',
+  NAU: '#8B4513',
+  XAM: '#808080',
+  BAC: '#C0C0C0',
+}
+
+const resolveAdminColorHex = (colorName?: string) => {
+  if (!colorName) return '#ccc'
+  const normalized = colorName.trim()
+  if (normalized.startsWith('#') || normalized.startsWith('rgb') || normalized.startsWith('hsl')) {
+    return normalized
+  }
+  const key = normalized
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_')
+    .toUpperCase()
+
+  return adminColorMap[key] ?? normalized.toLowerCase()
+}
+
+const productVariantColorStyle = (colorName: string) => {
+  const colorHex = resolveAdminColorHex(colorName)
+  return {
+    backgroundColor: colorHex,
+    color: getContrastColor(colorHex),
+  }
+}
+
+void resolveAdminColorHex
+void adminColorMap
+
+const imageAltText = (item: ProductImageRow) => item.url ?? 'Ảnh sản phẩm'
+
+const showGallery = displayGallery
+const showDetailForm = displayDetailForm
+const getItemId = variantRowId
+const getOptionId = toDynamicId
+const getOptionName = toDynamicName
+const getGalleryId = galleryImageId
+const getGalleryUrl = galleryImageUrl
+const getGalleryActive = galleryImageActive
+const getGalleryProductId = galleryImageProductId
+const getImageAlt = imageAltText
+const getColorStyle = productVariantColorStyle
+
+resetVariantForm()
+
+const quantity = ref(0)
+const price = ref(0)
+void quantity
+void price
+void productImageId
+void isActive
+void error
+void loading
+void createProductDetailResponse
+void createProductImageResponse
+const noop = (_value: string) => undefined
+void noop
+const loadDynamicNoop = (_type: string) => undefined
+void loadDynamicNoop
+const spareRequest = searchRequest
+void spareRequest
+const placeholderDescription = ref('')
+void placeholderDescription
+const imageUrlState = url
+void imageUrlState
+const imageActiveState = isActive
+void imageActiveState
+const imageIdState = productImageId
+void imageIdState
+const variantState = productVariantDetail
+void variantState
+const variantList = productDetailList
+void variantList
+const galleryList = resultsImage
+void galleryList
+const searchResults = results
+void searchResults
+const busy = loading
+void busy
+const errState = error
+void errState
+const created = createProductResponse
+void created
+const dynamicSeed = searchRequest
+void dynamicSeed
+const imageResponseState = createProductImageResponse
+void imageResponseState
+const variantResponseState = createProductDetailResponse
+void variantResponseState
+const countUnusedQuantity = quantity
+void countUnusedQuantity
+const countUnusedPrice = price
+void countUnusedPrice
 </script>
 
 <template>
@@ -337,7 +447,7 @@ const CreatedOrUpdate = async () => {
       <h2 class="card-title"><span id="formIcon">📝</span> <span id="formTitle">Tạo Sản Phẩm Mới</span></h2>
       <!-- Step 1: Create Product -->
       <div id="step1Form">
-        <form id="productForm" @submit.prevent="CreatedOrUpdate">
+        <form id="productForm" @submit.prevent="handleCreateProduct">
           <div class="form-group">
             <label for="productName" class="form-label">
               Tên sản phẩm <span class="required">*</span>
@@ -353,31 +463,6 @@ const CreatedOrUpdate = async () => {
           </div>
 
           <div class="form-group">
-            <label class="form-label">
-              Trạng thái <span class="required">*</span>
-            </label>
-
-            <div class="radio-group">
-              <label class="radio-option">
-                <input
-                    type="radio"
-                    value="ACTIVE"
-                    v-model="status"
-                />
-                <span>Đang bán</span>
-              </label>
-
-              <label class="radio-option">
-                <input
-                    type="radio"
-                    value="INACTIVE"
-                    v-model="status"
-                />
-                <span>Ngừng bán</span>
-              </label>
-            </div>
-          </div>
-          <div class="form-group">
             <label for="productDescription" class="form-label">
               Mô tả sản phẩm <span class="required">*</span>
             </label>
@@ -389,52 +474,13 @@ const CreatedOrUpdate = async () => {
                 required
             ></textarea>
           </div>
-          <div class="form-group">
-            <label for="location" class="form-label">
-              Location
-            </label>
-            <input
-                type="text"
-                id="location"
-                class="form-input"
-                placeholder="VD: Vietnam"
-                v-model="location"
-            />
-          </div>
-          <div class="form-group">
-            <label for="storage" class="form-label">
-              Storage (dung lượng)
-            </label>
-            <input
-                type="text"
-                id="storage"
-                class="form-input"
-                placeholder="VD: 128GB"
-                v-model="storage"
-            />
-          </div>
-          <div class="form-group">
-            <label for="deviceMake" class="form-label">
-              Device make
-            </label>
-            <input
-                type="text"
-                id="deviceMake"
-                class="form-input"
-                placeholder="VD: Apple, Samsung, Xiaomi"
-                v-model="deviceMake"
-            />
-          </div>
 
-          <button v-if="productIdRouter === null" type="submit" class="btn btn-primary" id="createProductBtn">
+          <button type="submit" class="btn btn-primary" id="createProductBtn">
             <span>✓</span> Thêm mới sản phẩm
-          </button>
-          <button v-else type="submit" class="btn btn-primary" id="createProductBtn">
-            <span>✓</span> Cập nhập sản phẩm
           </button>
         </form>
       </div><!-- Step 2: Add Details -->
-      <div v-if="createProductResponse !== null || productIdRouter !== undefined">
+      <div v-if="showDetailForm()">
         <br>
         <form @submit.prevent="handleCreateProductDetail">
           <div class="form-grid">
@@ -454,8 +500,8 @@ const CreatedOrUpdate = async () => {
               <label for="screenSize" class="form-label"> Màn hình <span class="required">*</span> </label>
               <select id="color" class="form-select" v-model="productVariantDetail.screenId" required>
                 <option value="">Chọn...</option>
-                <option v-for="c in screenList" :key="c.id" :value="c.id">
-                  {{ c.name }}
+                <option v-for="c in screenList" :key="getOptionId(c)" :value="getOptionId(c)">
+                  {{ getOptionName(c) }}
                 </option>
               </select>
             </div>
@@ -463,8 +509,8 @@ const CreatedOrUpdate = async () => {
               <label for="ram" class="form-label"> RAM <span class="required">*</span> </label>
               <select id="color" class="form-select" v-model="productVariantDetail.ramId" required>
                 <option value="">Chọn...</option>
-                <option v-for="c in ramList" :key="c.id" :value="c.id">
-                  {{ c.name }}
+                <option v-for="c in ramList" :key="getOptionId(c)" :value="getOptionId(c)">
+                  {{ getOptionName(c) }}
                 </option>
               </select>
             </div>
@@ -474,8 +520,8 @@ const CreatedOrUpdate = async () => {
             </label>
               <select id="color" class="form-select" v-model="productVariantDetail.cameraId" required>
                 <option value="">Chọn...</option>
-                <option v-for="c in cameraList" :key="c.id" :value="c.id">
-                  {{ c.name }}
+                <option v-for="c in cameraList" :key="getOptionId(c)" :value="getOptionId(c)">
+                  {{ getOptionName(c) }}
                 </option>
               </select>
             </div>
@@ -483,8 +529,8 @@ const CreatedOrUpdate = async () => {
             </label>
               <select id="color" class="form-select" v-model="productVariantDetail.colorId" required>
                 <option value="">Chọn...</option>
-                <option v-for="c in colorList" :key="c.id" :value="c.id">
-                  {{ c.name }}
+                <option v-for="c in colorList" :key="getOptionId(c)" :value="getOptionId(c)">
+                  {{ getOptionName(c) }}
                 </option>
               </select>
             </div>
@@ -493,8 +539,8 @@ const CreatedOrUpdate = async () => {
           </label>
             <select id="color" class="form-select" v-model="productVariantDetail.originId" required>
               <option value="">Chọn...</option>
-              <option v-for="c in originList" :key="c.id" :value="c.id">
-                {{ c.name }}
+              <option v-for="c in originList" :key="getOptionId(c)" :value="getOptionId(c)">
+                  {{ getOptionName(c) }}
               </option>
             </select>
           </div>
@@ -523,7 +569,7 @@ const CreatedOrUpdate = async () => {
           </tr>
           </thead>
           <tbody>
-          <tr v-for="(item, idx) in productDetailList" :key="idx">
+          <tr v-for="item in productDetailList" :key="getItemId(item)">
             <td>{{ item.productName }}</td>
             <td>{{ item.quantity }}</td>
             <td>{{ item.price }}</td>
@@ -559,7 +605,7 @@ const CreatedOrUpdate = async () => {
       </div>
     </div>
   </div>
-  <div class="image-gallery" v-if="createProductResponse?.code === 0 || productIdRouter !== undefined">
+  <div class="image-gallery" v-if="showGallery()">
     <h2 class="card-title">
       <span>🖼️</span>
       Thư Viện Ảnh Sản Phẩm
@@ -569,27 +615,27 @@ const CreatedOrUpdate = async () => {
       <button @click="handleCreateProductImage" class="btn-add">➕ Thêm ảnh</button>
     </div>
     <div class="gallery-grid">
-      <div class="gallery-item" v-for="(i, index) in resultsImage" :key="i.id">
-        <div v-if="i.active" class="active-badge">✓ ẢNH ĐẠI DIỆN</div>
+      <div class="gallery-item" v-for="i in resultsImage" :key="getGalleryId(i)">
+        <div v-if="getGalleryActive(i)" class="active-badge">✓ ẢNH ĐẠI DIỆN</div>
         <img
-            :src="i.url"
-            :alt="i.alt || 'Ảnh sản phẩm'"
+            :src="getGalleryUrl(i)"
+            :alt="getImageAlt(i)"
             class="gallery-image"
         />
 
         <div class="gallery-info">
           <button
               class="set-active-btn"
-              :class="{ active: i.active }"
-              @click="!i.active && setActiveImage(i.productImageId)"
-              :disabled="i.active"
+              :class="{ active: getGalleryActive(i) }"
+              @click="!getGalleryActive(i) && setActiveImage(getGalleryProductId(i))"
+              :disabled="getGalleryActive(i)"
           >
-            {{ i.active ? "✓ Đang hiển thị" : "🖼️ Đặt làm đại diện" }}
+            {{ getGalleryActive(i) ? "✓ Đang hiển thị" : "🖼️ Đặt làm đại diện" }}
           </button>
           <br>
           <button
               class="delete-image-btn"
-              @click="deleteImage(i.productImageId)"
+              @click="deleteImage(getGalleryProductId(i))"
           >
             🗑️ Xóa
           </button>
@@ -623,36 +669,6 @@ const CreatedOrUpdate = async () => {
   border-radius: 6px;
   cursor: pointer;
   transition: 0.2s ease;
-}
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-label {
-  display: block;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.required {
-  color: #e53935;
-}
-
-.radio-group {
-  display: flex;
-  gap: 20px;
-}
-
-.radio-option {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.radio-option input[type="radio"] {
-  cursor: pointer;
 }
 
 .delete-image-btn:hover {

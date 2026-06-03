@@ -7,7 +7,7 @@ import org.example.websitesalephone.dto.order.CountOrderRequest;
 import org.example.websitesalephone.dto.order.OrderByUserRequest;
 import org.example.websitesalephone.dto.order.OrderRequest;
 import org.example.websitesalephone.dto.order.OrderSearch;
-import org.example.websitesalephone.service.order.impl.OrderServiceImpl;
+import org.example.websitesalephone.service.order.OrderService;
 import org.example.websitesalephone.service.pdf.PDFGeneratorService;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,7 +21,7 @@ import java.util.Date;
 @RequiredArgsConstructor
 public class OrderController {
 
-    private final OrderServiceImpl orderService;
+    private final OrderService orderService;
 
     private final PDFGeneratorService pdfGeneratorService;
 

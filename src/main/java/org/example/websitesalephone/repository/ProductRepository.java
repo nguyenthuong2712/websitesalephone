@@ -15,18 +15,20 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 
     Page<Product> findAll(Specification specification, Pageable pageable);
 
-    long countByVariantsIsNotEmpty();
+    long countByIsDeletedFalseAndVariantsIsNotEmpty();
 
-    @Query(value = """
-            SELECT COUNT(DISTINCT p.id)
-            FROM products p
-            JOIN product_variants pv ON pv.product_id = p.id AND pv.IS_DELETED = 0
-            JOIN shop_registrations sr ON sr.id = p.shop_registration_id AND sr.IS_DELETED = 0
-            WHERE p.IS_DELETED = 0
-              AND sr.user_id = :sellerId
-            """, nativeQuery = true)
-    long countSellableProductsBySellerId(@Param("sellerId") String sellerId);
+    long countByIsDeletedFalse();
 
-    List<Product> findTop8ByIsDeletedFalseAndStatusOrderByCreatedAtDesc(ProductStatus status);
+    @Query("""
+            select distinct p
+            from Product p
+            join p.variants v
+            where p.isDeleted = false
+              and p.status = :status
+              and v.isDeleted = false
+              and v.quantity > 0
+            order by p.createdAt desc
+            """)
+    List<Product> findHomeProducts(@Param("status") ProductStatus status, Pageable pageable);
 
 }

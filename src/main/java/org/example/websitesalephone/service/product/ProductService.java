@@ -38,6 +38,4 @@ public interface ProductService {
     CommonResponse deletedImage(String idImage);
 
     CommonResponse getAllNewProduct();
-
-    CommonResponse hardDelete(String id);
 }

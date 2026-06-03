@@ -52,7 +52,13 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CommonResponse authenticate(AuthUserDto request) throws Exception {
-        // Tìm user theo username hoặc email
+        if (StringUtils.isBlank(request.getLoginId()) || request.getPasswordLogin().isEmpty()) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Thiếu thông tin đăng nhập")
+                    .build();
+        }
+
         List<User> users = userRepository.findByUsernameOrEmail(request.getLoginId(), request.getLoginId());
         if (users.isEmpty()) {
             return CommonResponse.builder()
@@ -70,10 +76,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         }
 
         User activeUser = activeUserOpt.get();
-
-        String rawPassword = request.getPasswordLogin().get();
-        String encodedPassword = activeUser.getPasswordHash();
-        if (!BCrypt.checkpw(rawPassword, encodedPassword)) {
+        String rawPassword = request.getPasswordLogin().orElse("");
+        if (!BCrypt.checkpw(rawPassword, activeUser.getPasswordHash())) {
             return CommonResponse.builder()
                     .code(CommonResponse.CODE_PASSWORD)
                     .message("Nhập sai password")
@@ -82,9 +86,6 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
         this.authenticationManager.authenticate(request.toAuthenticationToken());
 
-        userRepository.save(activeUser);
-
-        // Sinh token
         String token = jwtService.generateToken(UserDetail.fromEntity(activeUser));
         return CommonResponse.builder()
                 .data(new AuthTokenResponse(token, activeUser.getRole().getRoleEnums().name()))
@@ -93,6 +94,13 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     public CommonResponse setTokenExpired(String token) {
+        if (StringUtils.isBlank(token)) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Token không hợp lệ")
+                    .build();
+        }
+
         ExpiredToken entity = new ExpiredToken();
         entity.setAccessToken(token);
         tokenExpiredRepository.save(entity);
@@ -202,38 +210,57 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     public CommonResponse register(RegisterRequest registerRequest) {
+        if (registerRequest == null || StringUtils.isBlank(registerRequest.getUsername())
+                || StringUtils.isBlank(registerRequest.getPassword()) || StringUtils.isBlank(registerRequest.getEmail())) {
+            return CommonResponse
+                    .builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Thiếu thông tin đăng ký")
+                    .build();
+        }
+
         List<User> user = userRepository.findByUsername(registerRequest.getUsername());
+        List<User> userByEmail = userRepository.findByEmail(registerRequest.getEmail());
         Role role = roleRepository.findById(RoleEnums.CUSTOMER.getId()).orElse(null);
+
         if (!user.isEmpty()) {
             return CommonResponse
                     .builder()
-                    .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("Tài khoản đã tồn tại").build();
+                    .code(CommonResponse.CODE_ALREADY_EXIST)
+                    .message("Tài khoản đã tồn tại")
+                    .build();
+        }
+
+        if (!userByEmail.isEmpty()) {
+            return CommonResponse
+                    .builder()
+                    .code(CommonResponse.CODE_EMAIL_ALREADY_EXIST)
+                    .message("Email đã tồn tại")
+                    .build();
         }
 
         if (role == null) {
             return CommonResponse
                     .builder()
                     .code(CommonResponse.CODE_NOT_FOUND)
-                    .message("Role not found").build();
+                    .message("Role not found")
+                    .build();
         }
 
         User user1 = new User();
-
         user1.setId(UUID.randomUUID().toString());
-        user1.setUsername(registerRequest.getUsername());
-        user1.setPhone(registerRequest.getUsername());
+        user1.setUsername(registerRequest.getUsername().trim());
+        user1.setPhone(registerRequest.getUsername().trim());
         user1.setFullName(registerRequest.getFullName() == null ? null : registerRequest.getFullName().trim());
-        user1.setEmail(registerRequest.getEmail());
-        user1.setPasswordHash(BCrypt.hashpw(registerRequest.getPassword(), BCrypt.gensalt()));
+        user1.setEmail(registerRequest.getEmail().trim());
+        user1.setPasswordHash(BCrypt.hashpw(registerRequest.getPassword().trim(), BCrypt.gensalt()));
         user1.setPasswordExpiredAt(OffsetDateTime.now().plusDays(Constants.PASSWORD_EXPIRE_DAYS));
         user1.setRole(role);
-        user1.setCodeUser(Utils.generateUniqueCode("USER"));
+        user1.setCodeUser(Utils.generateUniqueCode("CUSTOMER-"));
 
         userRepository.saveAndFlush(user1);
 
         Cart cart = new Cart();
-
         cart.setUser(user1);
         cart.setId(UUID.randomUUID().toString());
         cartRepository.saveAndFlush(cart);
@@ -241,7 +268,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         return CommonResponse
                 .builder()
                 .code(CommonResponse.CODE_SUCCESS)
-                .message("Registered Successfully").build();
-
+                .message("Registered Successfully")
+                .build();
     }
 }

@@ -1,25 +1,15 @@
 package org.example.websitesalephone.dto.product;
 
 import lombok.Getter;
-import lombok.Setter;
 
 import java.math.BigDecimal;
 
 @Getter
-@Setter
 public class ProductDetailRequest {
 
     private String productName;
 
     private String description;
-
-    private String location;
-
-    private String storage;
-
-    private String deviceMake;
-
-    private String status;
 
     private int quantity;
 

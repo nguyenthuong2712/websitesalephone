@@ -4,9 +4,12 @@ import { useRouter } from "vue-router";
 import { authService } from "@/service/AuthService.ts";
 import {toast} from "vue3-toastify";
 import { Search, ShoppingCart, User, Smartphone } from '@lucide/vue';
+import { useCartStore } from "@/cartStore";
 
 const router = useRouter();
 const showMenu = ref(false);
+const cartStore = useCartStore();
+const cartCount = computed(() => cartStore.cartCount);
 
 // computed reactive: tự cập nhật khi token thay đổi
 const isAuth = computed(() => authService.isAuthenticated());
@@ -25,20 +28,6 @@ const logout = () => {
   router.push("/login");
 };
 
-const switchToCustomer = () => {
-  authService.saveRole("CUSTOMER");
-  showMenu.value = false;
-  toast.success("Đã chuyển về vai trò người mua hàng");
-  router.push("/customer/home");
-};
-
-const switchToPartner = () => {
-  authService.saveRole("PARTNER");
-  showMenu.value = false;
-  toast.success("Đã chuyển sang vai trò PARTNER");
-  router.push("/admin/product");
-};
-
 // đóng menu khi click ngoài
 const handleClickOutside = (event: MouseEvent) => {
   const menu = document.querySelector(".user-menu-wrapper");
@@ -49,6 +38,7 @@ const handleClickOutside = (event: MouseEvent) => {
 
 onMounted(() => {
   document.addEventListener("click", handleClickOutside);
+  cartStore.fetchCartCount();
 });
 
 </script>
@@ -56,16 +46,17 @@ onMounted(() => {
 <template>
   <header class="header">
     <nav class="nav-container">
-      <div class="logo">
-        <Smartphone :size="20" class="logo-icon" />
-        <span>Phone Store</span>
-      </div>
+      <div class="logo-menu-wrapper">
+        <div class="logo">
+          <Smartphone :size="20" class="logo-icon" />
+          <span>Phone Store</span>
+        </div>
 
-      <ul class="nav-menu">
-        <li><router-link to="/customer/home">Trang chủ</router-link></li>
-        <li><router-link to="/customer/product-home">Sản phẩm</router-link></li>
-        <li><router-link to="/customer/home">Liên hệ</router-link></li>
-      </ul>
+        <ul class="nav-menu">
+          <li><router-link to="/customer/home">Trang chủ</router-link></li>
+          <li><router-link to="/customer/product-home">Sản phẩm</router-link></li>
+        </ul>
+      </div>
 
       <div class="nav-actions">
         <!-- SEARCH -->
@@ -76,7 +67,7 @@ onMounted(() => {
         <!-- CART -->
         <router-link :to="{ name: 'cart' }" class="action-btn cart-btn">
           <ShoppingCart :size="18" />
-          <span class="cart-badge">0</span>
+          <span class="cart-badge">{{ cartCount }}</span>
         </router-link>
 
         <!-- LOGIN / USER MENU -->
@@ -102,11 +93,6 @@ onMounted(() => {
             <li>
               <router-link to="/customer/order-by-user">Đơn hàng của tôi</router-link>
             </li>
-            <li>
-              <router-link to="/customer/shop-register">Đăng ký shop</router-link>
-            </li>
-            <li v-if="role === 'PARTNER'" @click="switchToCustomer">Chuyển về người mua</li>
-            <li v-else @click="switchToPartner">Chuyển sang PARTNER</li>
             <li @click="logout">Đăng xuất</li>
           </ul>
         </div>
@@ -148,6 +134,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.logo-menu-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 48px;
 }
 
 .logo-icon {
