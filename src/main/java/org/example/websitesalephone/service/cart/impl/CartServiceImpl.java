@@ -12,6 +12,7 @@ import org.example.websitesalephone.enums.CartStatus;
 import org.example.websitesalephone.enums.OrderStatus;
 import org.example.websitesalephone.repository.*;
 import org.example.websitesalephone.service.cart.CartService;
+import org.example.websitesalephone.dto.order.OrderResponse;
 import org.example.websitesalephone.utils.Utils;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -249,6 +250,9 @@ public class CartServiceImpl implements CartService {
         order.setStatus(OrderStatus.PENDING.getCode());
         order.setAddressDetail(checkOutRequest.getAddressLine());
         order.setMethodTransaction("THANH TOÁN KHI NHẬN HÀNG");
+        order.setOrderItems(new java.util.ArrayList<>());
+        order.setCreatedAt(java.time.OffsetDateTime.now());
+        order.setUpdatedAt(java.time.OffsetDateTime.now());
         orderRepository.save(order);
 
         for (CartItem item : activeItems) {
@@ -264,6 +268,8 @@ public class CartServiceImpl implements CartService {
             orderItem.setUnitPrice(item.getProductVariant().getPrice());
             orderItemRepository.saveAndFlush(orderItem);
 
+            order.getOrderItems().add(orderItem);
+
             item.setStatus(CartStatus.CHECKED_OUT.getCode());
             item.setDeleted(true);
             cartItemRepository.saveAndFlush(item);
@@ -272,12 +278,14 @@ public class CartServiceImpl implements CartService {
         orderStatusHistory.setId(UUID.randomUUID().toString());
         orderStatusHistory.setOrder(order);
         orderStatusHistory.setStatus(OrderStatus.PENDING.getCode());
+        orderStatusHistory.setCreatedAt(java.time.OffsetDateTime.now());
+        orderStatusHistory.setUpdatedAt(java.time.OffsetDateTime.now());
         orderStatusHistoryRepository.saveAndFlush(orderStatusHistory);
 
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
                 .message("Thanh toán thành công")
-                .data(order)
+                .data(OrderResponse.fromOrder(order))
                 .build();
     }
 

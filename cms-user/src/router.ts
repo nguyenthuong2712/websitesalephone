@@ -5,6 +5,8 @@ import { authService } from './service/AuthService'
 import DetailProductHome from './pages/home/DetailProductHome.vue'
 import Cart from './pages/home/Cart.vue'
 import HomeProduct from './pages/home/HomeProduct.vue'
+import PaymentSuccess from './pages/home/PaymentSuccess.vue'
+import PaymentFailed from './pages/home/PaymentFailed.vue'
 
 // Admin pages
 import AdminLayout from './layout/AdminLayout.vue'
@@ -90,6 +92,18 @@ const router = createRouter({
                     path: 'user-profile',
                     name: 'UserProfile',
                     component: UserProfile,
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
+                },
+                {
+                    path: 'payment-success',
+                    name: 'PaymentSuccess',
+                    component: PaymentSuccess,
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
+                },
+                {
+                    path: 'payment-failed',
+                    name: 'PaymentFailed',
+                    component: PaymentFailed,
                     meta: { requiresAuth: true, roles: ['CUSTOMER'] }
                 }
             ]

@@ -32,6 +32,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/payment/vnpay-return").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/chat/**").authenticated()
                         .requestMatchers(
@@ -40,7 +41,6 @@ public class SecurityConfig {
                                 "/api/user/delete/**",
                                 "/api/user/search",
                                 "/api/order/search",
-                                "/api/order/update",
                                 "/api/order/count-order-staff",
                                 "/api/order/dashboard/**",
                                 "/api/dynamic/**",
@@ -56,6 +56,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/product-images/upload").hasAnyAuthority("ADMIN", "STAFF")
                         .requestMatchers(HttpMethod.PUT, "/api/product-images/update").hasAnyAuthority("ADMIN", "STAFF")
                         .requestMatchers(HttpMethod.DELETE, "/api/product-images/**").hasAnyAuthority("ADMIN", "STAFF")
+                        .requestMatchers("/api/order/update").hasAnyAuthority("ADMIN", "STAFF", "CUSTOMER")
                         .anyRequest().authenticated())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
@@ -67,7 +68,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedMethods(Arrays.asList("HEAD", "GET", "PUT", "POST", "DELETE", "PATCH"));
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5175"));
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5175", "http://localhost:5173"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -7,12 +7,14 @@ import type { CartResponse, ProductInCart } from '@/models/Cart';
 import { CartRequest } from '@/models/CartRequest';
 import { toast } from 'vue3-toastify';
 import { CheckOutRequest } from '@/models/CheckOutRequest';
+import { paymentService } from '@/service/PaymentService';
 
 type CartItemWithSelect = ProductInCart & { selected: boolean };
 const cartItems = ref<CartItemWithSelect[]>([]);
 const loading = ref(false);
 const search = {};
 const address = ref<string>("");
+const paymentMethod = ref<string>("COD");
 
 const fetchCartItems = async () => {
   loading.value = true;
@@ -95,12 +97,28 @@ const checkout = async () => {
       address.value
   );
   try {
-    await cartService.checkoutCart(payload.toPayload())
-    toast.success('Thanh toán thành công!')
-    await fetchCartItems()
+    const res = await cartService.checkoutCart(payload.toPayload());
+    if (res.data.code === 2) {
+      toast.error(res.data.message);
+      return;
+    }
+
+    const createdOrder = res.data.data;
+    if (paymentMethod.value === 'VNPAY') {
+      toast.info('Đang chuyển hướng sang cổng thanh toán VNPAY...');
+      const paymentRes = await paymentService.createPayment(createdOrder.order_id);
+      if (paymentRes.data.code === 0) {
+        window.location.href = paymentRes.data.data;
+      } else {
+        toast.error(paymentRes.data.message || 'Không thể tạo link thanh toán VNPAY');
+      }
+    } else {
+      toast.success('Đặt hàng thành công!');
+      await fetchCartItems();
+    }
   } catch (err) {
-    console.error('Checkout error', err)
-    toast.error('Thanh toán thất bại')
+    console.error('Checkout error', err);
+    toast.error('Đặt hàng thất bại');
   }
 };
 
@@ -257,12 +275,18 @@ function isDisable(): boolean{
           <span class="summary-label">Tạm tính ({{ totalQuantity }} sản phẩm)</span>
           <span class="summary-value">{{ subtotal.toLocaleString('vi-VN') }}₫</span>
         </div>
-        <div class="summary-row payment-row">
-          <span class="summary-label">Hình thức thanh toán</span>
-          <span class="summary-value cod-note">
-            Khi nhận hàng
-            <small class="payment-info">(Hiện chưa hỗ trợ chuyển khoản)</small>
-          </span>
+        <div class="summary-row payment-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+          <span class="summary-label" style="font-weight: bold; margin-bottom: 4px;">Hình thức thanh toán</span>
+          <div class="payment-methods" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; width: 100%; font-weight: normal;">
+              <input type="radio" v-model="paymentMethod" value="COD" />
+              <span>💵 Thanh toán khi nhận hàng (COD)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; width: 100%; font-weight: normal;">
+              <input type="radio" v-model="paymentMethod" value="VNPAY" />
+              <span>💳 Thanh toán trực tuyến qua VNPAY</span>
+            </label>
+          </div>
         </div>
         <div class="summary-row">
           <span class="summary-label">Phí vận chuyển</span>

@@ -21,7 +21,7 @@ public class OrderStatusHistoryResponse {
         OrderStatusHistoryResponse orderStatusHistoryResponse = new OrderStatusHistoryResponse();
         orderStatusHistoryResponse.setStatus(orderStatusHistory.getStatus());
         orderStatusHistoryResponse.setDescription(orderStatusHistory.getDescription());
-        orderStatusHistoryResponse.setTime(Constants.FORMATTER.format(orderStatusHistory.getCreatedAt()));
+        orderStatusHistoryResponse.setTime(orderStatusHistory.getCreatedAt() != null ? Constants.FORMATTER.format(orderStatusHistory.getCreatedAt()) : null);
         orderStatusHistoryResponse.setNameStaff(orderStatusHistory.getOrder().getStaff() == null ? "" : orderStatusHistory.getOrder().getStaff().getFullName());
         return orderStatusHistoryResponse;
     }

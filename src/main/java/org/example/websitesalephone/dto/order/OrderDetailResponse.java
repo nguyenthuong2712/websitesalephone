@@ -77,7 +77,7 @@ public class OrderDetailResponse {
                 .stream().map(item -> {
                     OrderHistoryStatusResponse orderHistoryStatusResponse = new OrderHistoryStatusResponse();
                     orderHistoryStatusResponse.setStatus(item.getStatus());
-                    orderHistoryStatusResponse.setCreatedAt(Constants.FORMATTER.format(item.getCreatedAt()));
+                    orderHistoryStatusResponse.setCreatedAt(item.getCreatedAt() != null ? Constants.FORMATTER.format(item.getCreatedAt()) : null);
                     return orderHistoryStatusResponse;
                 }).toList();
 
@@ -85,7 +85,7 @@ public class OrderDetailResponse {
 
         return OrderDetailResponse.builder()
                 .orderCode(order.getOrderCode())
-                .createdAt(Constants.FORMATTER.format(order.getCreatedAt()))
+                .createdAt(order.getCreatedAt() != null ? Constants.FORMATTER.format(order.getCreatedAt()) : null)
                 .status(order.getStatus() != null ? order.getStatus() : null)
                 .fullName(order.getCustomer() != null ? order.getCustomer().getFullName() : null)
                 .phoneNumber(order.getCustomer() != null ? order.getCustomer().getPhone() : null)

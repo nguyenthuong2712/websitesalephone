@@ -34,5 +34,8 @@ public class Payment extends BaseEntity{
 
     private LocalDateTime paidAt;
 
+    @Column(length = 100)
+    private String transactionNo;
+
     // getters & setters
 }

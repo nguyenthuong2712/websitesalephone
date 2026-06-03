@@ -60,7 +60,7 @@ public class OrderResponse {
                 .orderCode(order.getOrderCode())
                 .userName(order.getCustomer() != null ? order.getCustomer().getFullName() : null)
                 .phone(order.getCustomer() != null ? order.getCustomer().getPhone() : null)
-                .createdAt(Constants.FORMATTER.format(order.getCreatedAt()))
+                .createdAt(order.getCreatedAt() != null ? Constants.FORMATTER.format(order.getCreatedAt()) : null)
                 .dateTimeCheckout(order.getDateTimeCheckout() != null ? order.getDateTimeCheckout().format(FORMATTER) : null)
                 .quantity(totalQuantity)
                 .status(order.getStatus())

@@ -1,0 +1,197 @@
+ ▐▛███▜▌   Claude Code v2.1.158
+▝▜█████▛▘  gemini-3.5-flash · API Usage Billing
+  ▘▘ ▝▝    D:\HTML TO CSS\websitesalephone
+
+  ↑ Install the PyCharm plugin from the JetBrains Marketplace: https://docs.claude.com/s/claude-code-jetbrains
+   Opus 4.8 is now available! · /model to switch
+
+❯ /init                                                                         
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● Bash(dir)
+  ⎿  CLAUDE.md  README.md  cms-user     mvnw  mvnw.cmd  pom.xml  src  target
+
+  Read 1 file (ctrl+o to expand)
+
+● Bash(dir /a)
+  ⎿  Error: Exit code 2
+     dir: cannot access '/a': No such file or directory
+
+  Searched for 3 patterns, read 2 files, listed 4 directories (ctrl+o to expand)
+  ⎿  Invalid tool parameters
+
+  Searched for 3 patterns, read 6 files (ctrl+o to expand)
+
+● Write(CLAUDE.md)
+  ⎿  Added 19 lines, removed 12 lines
+      34  
+      35  ## Architecture
+      36  
+      37 -### Backend request flow                                       
+      37 +### Backend Request Flow                                       
+      38  
+      39  Most backend features follow this path:
+      40  - `controller/*` exposes REST endpoints under `/api/...`.
+     ...
+      43  - DTOs in `dto/*` shape request and response payloads.
+      44  - API responses are usually wrapped in `comon/CommonResponse` a
+          nd paginated results use `comon/PageResponse`.
+      45  
+      46 -### Security model                                             
+      46 +### Security Model                                             
+      47  
+      48  Authentication is JWT-based:
+      49  - `controller/AuthController.java` exposes login, logout, regis
+          ter, forgot-password, and reset-password flows.
+      50  - `auth/JwtService.java` signs and validates RSA JWTs.
+      51  - `auth/JwtAuthenticationFilter.java` reads the `Authorization:
+           Bearer ...` header and populates the Spring Security context.
+      52  - `config/ApplicationConfig.java` wires `UserDetailsService`, p
+          assword encoding, and the authentication provider.
+      53 -- `config/SecurityConfig.java` installs the JWT filter and curr
+         -ently permits all `/api/auth`, `/api/product`, `/api/cart`, `/a
+         -pi/dynamic`, `/api/user`, `/api/product-images`, `/api/pdf`, an
+         -d `/api/order` routes at the HTTP layer, so many service method
+         -s rely on the authenticated principal being present rather than
+         - URL-level access control.                                     
+      53 +- `config/SecurityConfig.java` installs the JWT filter. Notice 
+         +that some routes are public (e.g. `/api/auth/**`) while other e
+         +ndpoints (e.g. `/api/chat/**`, `/api/user/**`, `/api/order/**`,
+         + `/api/product/**`) require specific roles or authentication.  
+      54  
+      55 -### Domain model                                               
+      55 +### WebSocket Chat System                                      
+      56  
+      57 +The app implements real-time messaging using STOMP:            
+      58 +- `config/WebSocketConfig.java` registers `/ws` as the endpoint
+         + and configures `/topic` as the broker prefix.                 
+      59 +- `controller/ChatController.java` maps websocket messages unde
+         +r `/app/chat.sendMessage/{roomId}`.                            
+      60 +- WebSockets use `/topic/chat/room/{roomId}` for direct user ro
+         +om updates and `/topic/chat/admins` to notify admins of activit
+         +y.                                                             
+      61 +                                                               
+      62 +### Domain Model                                               
+      63 +                                                               
+      64  The data model is centered around a catalog/order workflow:
+      65  - `entity/Product` holds the base product record.
+      66  - `entity/ProductVariant` stores sellable variants and inventor
+          y quantities.
+     ...
+      69  - `entity/Order`, `entity/OrderItem`, and `entity/OrderStatusHi
+          story` track checkout and fulfillment progress.
+      70  - `entity/User`, `entity/Role`, `entity/Address`, `entity/Passw
+          ordResetToken`, and `entity/ExpiredToken` support identity, aut
+          horization, and token lifecycle.
+      71  
+      65 -### Search and paging conventions                              
+      72 +### Search and Paging Conventions                              
+      73  
+      74  Search screens use a shared pattern across modules:
+      75  - Search DTOs extend or align with `comon/PagingRequest` semant
+          ics (`page`, `size`, `sortBy`, `sortDesc`).
+     ...
+      77  - More complex filters are implemented as JPA `Specification`s,
+           notably in `spe/OrderSpecification.java` and `spe/UserSpecific
+          ation.java`.
+      78  - Product search currently builds the `Specification` inline in
+           `service/product/impl/ProductServiceImpl.java` rather than in 
+          a dedicated specification class.
+      79  
+      73 -### Product and dynamic attribute management                   
+      80 +### Product and Dynamic Attribute Management                   
+      81  
+      82  Product management spans multiple files:
+      83  - `controller/ProductController.java` exposes product CRUD, var
+          iant CRUD, image management, quantity checks, and "new product"
+           listing.
+      84  - `service/product/impl/ProductServiceImpl.java` is the main or
+          chestration layer for product creation, variant updates, search
+          , and image metadata.
+      85  - `controller/DynamicController.java` with `service/dyanmic/imp
+          l/DynamicAttributeProductServiceImpl.java` handles lookup-table
+           style CRUD for attributes like color, RAM, screen, camera, ori
+          gin, and similar values used by product variants.
+      86  
+      80 -### Cart and checkout flow                                     
+      87 +### Cart and Checkout Flow                                     
+      88  
+      89  The purchase flow is split between cart and order services:
+      90  - `controller/CartController.java` exposes add/update/items/che
+          ckout endpoints.
+      91  - `service/cart/impl/CartServiceImpl.java` resolves the logged-
+          in user from the security context, mutates cart items, validate
+          s stock, creates the order, decrements variant inventory, marks
+           cart items checked out, and inserts the first `OrderStatusHist
+          ory` row.
+      92  - `service/order/impl/OrderServiceImpl.java` handles back-offic
+          e order search, detail views, status transitions, counts, and d
+          ashboard summary metrics.
+      93  
+      87 -### PDF and image handling                                     
+      94 +### PDF and Image Handling                                     
+      95  
+      96  Two features depend on filesystem/resource assumptions that are
+           easy to miss:
+      97  - `service/pdf/impl/PDFGeneratorServiceImpl.java` renders order
+           invoices with iText and expects the font resource path `fonts/
+          Roboto-Regular.ttf`.
+     ...
+       99  
+      100  ## Frontend Structure
+      101  
+       95 -### App shell and routing                                     
+      102 +### App Shell and Routing                                     
+      103  
+      104  The Vue app is route-driven:
+      105  - `src/App.vue` is only a `router-view` shell.
+     ...
+      107  - Admin pages are wrapped by `src/layout/AdminLayout.vue`.
+      108  - Route guards use `meta.requiresAuth` plus `meta.roles` to re
+           direct unauthenticated users to `/login` and unauthorized user
+           s to `/403`.
+      109  
+      103 -### Frontend API layer                                        
+      110 +### Frontend API Layer                                        
+      111  
+      112  The frontend uses a shared Axios instance:
+      113  - `src/api/api.ts` sets the base URL to `${VITE_ROOT_API}/api`
+           .
+     ...
+      115  - A response interceptor clears auth state and redirects to `/
+           login` on `401`.
+      116  - Feature services in `src/service/*.ts` are thin wrappers aro
+           und backend endpoints.
+      117  
+      111 -### Frontend auth and state                                   
+      118 +### Frontend Auth and State                                   
+      119  
+      120  Client-side auth state is stored in `localStorage` rather than
+            Pinia:
+      121  - `src/service/AuthService.ts` stores the JWT under `Authoriza
+           tion` and the role under `USER-ROLE`.
+      122  - Route access depends on `authService.isAuthenticated()` and 
+           `authService.getRole()` from `src/router.ts`.
+      123  - Pinia is present, but currently used for focused state such 
+           as `src/userStore.ts` for the logged-in user profile.
+      124  
+      118 -### Frontend page organization                                
+      125 +### Frontend Page Organization                                
+      126  
+      127  The page structure follows the backend domains:
+      128  - `src/pages/home/*` contains customer storefront, cart, order
+            history, and profile pages.
+
+● I analyzed the codebase and updated CLAUDE.md with these enhancements:
+
+  1. Security model update: Reflected real HTTP endpoint restrictions in
+  SecurityConfig.java (like role checks for /api/chat/**, /api/user/**,
+  /api/order/**, and /api/product/**) rather than claiming everything is
+  permitted.
+  2. WebSocket Chat integration: Added structural information about WebSocket
+  config (WebSocketConfig.java and /ws endpoints) and ChatController mappings.
+  3. Refined project context: Maintained the accurate command listings,
+  directory paths, and runtime conventions.
+
+✻ Baked for 1m 31s

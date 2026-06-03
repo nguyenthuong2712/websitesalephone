@@ -115,6 +115,28 @@ public class OrderServiceImpl implements OrderService {
                     .build();
         }
 
+        if (isCustomer(loginUser)) {
+            if (!Objects.equals(order.getCustomer().getId(), loginUser.getId())) {
+                return CommonResponse.builder()
+                        .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                        .message("Bạn không có quyền cập nhật đơn hàng này")
+                        .build();
+            }
+            if (!Objects.equals(orderRequest.getStatus(), OrderStatus.CANCELLED.getCode())) {
+                return CommonResponse.builder()
+                        .code(CommonResponse.CODE_BUSINESS)
+                        .message("Khách hàng chỉ được phép hủy đơn hàng")
+                        .build();
+            }
+            OrderStatus currentStatus = OrderStatus.fromCode(order.getStatus());
+            if (currentStatus != OrderStatus.PENDING && currentStatus != OrderStatus.CONFIRMED) {
+                return CommonResponse.builder()
+                        .code(CommonResponse.CODE_BUSINESS)
+                        .message("Đơn hàng chỉ có thể hủy khi ở trạng thái chờ xử lý hoặc đã xác nhận")
+                        .build();
+            }
+        }
+
         OrderStatus currentStatus = OrderStatus.fromCode(order.getStatus());
 
         OrderStatus newStatus;
@@ -137,7 +159,9 @@ public class OrderServiceImpl implements OrderService {
             order.setDateTimeCheckout(OffsetDateTime.now());
         }
 
-        order.setStaff(loginUser);
+        if (!isCustomer(loginUser)) {
+            order.setStaff(loginUser);
+        }
         orderRepository.saveAndFlush(order);
 
         // Lưu mô tả
