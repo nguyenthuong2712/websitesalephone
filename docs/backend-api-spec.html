@@ -1,0 +1,1471 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PhoneP2P - Backend API Spec</title>
+  <style>
+@page { size: A4; margin: 16mm 14mm; }
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #f3f6fa;
+  color: #17202a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, "Helvetica Neue", sans-serif;
+  line-height: 1.48;
+  font-size: 13px;
+}
+main {
+  max-width: 980px;
+  margin: 0 auto;
+  background: white;
+  padding: 36px 44px 48px;
+}
+h1 {
+  margin: 0 0 18px;
+  padding-bottom: 14px;
+  border-bottom: 3px solid #0b63ce;
+  color: #0b2d5c;
+  font-size: 28px;
+  line-height: 1.2;
+}
+h2 {
+  margin: 28px 0 10px;
+  color: #0b2d5c;
+  font-size: 20px;
+  border-bottom: 1px solid #d6e0ec;
+  padding-bottom: 6px;
+}
+h3 { margin: 22px 0 8px; color: #0c4a8a; font-size: 16px; }
+h4 { margin: 16px 0 6px; color: #24364b; font-size: 14px; }
+p { margin: 7px 0; }
+ul { margin: 8px 0 12px 20px; padding: 0; }
+li { margin: 4px 0; }
+code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  background: #edf3fb;
+  color: #0b3b75;
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 12px;
+}
+pre {
+  margin: 10px 0 14px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #cdd9e7;
+  background: #0f172a;
+  color: #eef6ff;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  page-break-inside: avoid;
+}
+pre code { background: transparent; color: inherit; padding: 0; font-size: 11.5px; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0 16px;
+  font-size: 12px;
+  page-break-inside: avoid;
+}
+th, td { border: 1px solid #d6e0ec; padding: 7px 8px; vertical-align: top; }
+th { background: #e8f1fb; color: #0b2d5c; text-align: left; font-weight: 700; }
+tr:nth-child(even) td { background: #f8fbff; }
+hr { border: 0; border-top: 1px solid #d6e0ec; margin: 24px 0; }
+@media print {
+  body { background: white; }
+  main { max-width: none; padding: 0; }
+  h2, h3, table, pre { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+  <main>
+<h1>PhoneP2P - Backend API Spec cho các luồng còn thiếu</h1>
+<p>Ngày cập nhật: 2026-04-28</p>
+<h2>1. Mục tiêu</h2>
+<p>Tài liệu này mô tả các API backend cần bổ sung để hoàn thiện các luồng đang có trên FE PhoneP2P:</p>
+<ul>
+<li>Checkout từ giỏ hàng sang đơn hàng.</li>
+<li>Sổ địa chỉ và lấy địa chỉ hiện tại qua Google Maps phía server.</li>
+<li>Quản lý/duyệt shop.</li>
+<li>Permission và shop context cho admin-store.</li>
+<li>Quote checkout, voucher, VietQR, pickup point.</li>
+<li>Chat buyer/seller.</li>
+<li>Product review/approval.</li>
+</ul>
+<p>Tài liệu ưu tiên tương thích với code hiện tại. Đặc biệt:</p>
+<ul>
+<li>API tạo đơn hiện tại là <code>POST /api/cart/checkout</code>.</li>
+<li>Nhóm <code>/api/order/*</code> hiện phù hợp cho quản lý đơn sau khi đơn đã được tạo.</li>
+<li>Không nên tạo đơn bằng <code>PUT /api/order/update</code>; endpoint đó chỉ nên dùng để cập nhật trạng thái/thông tin vận hành của đơn đã tồn tại.</li>
+</ul>
+<h2>2. Hiện trạng API liên quan</h2>
+<h3>2.1 Cart checkout hiện có</h3>
+<p>Endpoint hiện có:</p>
+<pre data-lang="http"><code>
+POST /api/cart/checkout
+Authorization: Bearer &lt;token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Payload hiện tại:</p>
+<pre data-lang="json"><code>
+{
+  &quot;addressLine&quot;: &quot;Nguoi nhan - SDT | Dia chi giao hang | Ghi chu&quot;
+}
+</code></pre>
+<p>Backend hiện đã:</p>
+<ul>
+<li>Lấy user đang đăng nhập.</li>
+<li>Kiểm tra cart tồn tại và có item.</li>
+<li>Kiểm tra tồn kho từng cart item.</li>
+<li>Tạo <code>Order</code> với status <code>PENDING</code>.</li>
+<li>Set <code>addressDetail</code> từ <code>addressLine</code>.</li>
+<li>Set <code>methodTransaction</code> mặc định là COD.</li>
+<li>Tạo <code>OrderItem</code>.</li>
+<li>Trừ số lượng <code>ProductVariant</code>.</li>
+<li>Đánh dấu <code>CartItem</code> đã checkout.</li>
+<li>Tạo <code>OrderStatusHistory</code> ban đầu.</li>
+</ul>
+<h3>2.2 Order API hiện có</h3>
+<p>Base path: <code>/api/order</code></p>
+<table><thead><tr>
+<th>Method</th>
+<th>Path</th>
+<th>Vai trò hiện tại</th>
+</tr></thead><tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/search</code></td>
+<td>Admin/staff tìm kiếm đơn hàng</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/detail/{id}</code></td>
+<td>Chi tiết đơn hàng</td>
+</tr>
+<tr>
+<td><code>PUT</code></td>
+<td><code>/update</code></td>
+<td>Cập nhật trạng thái/phí ship/ghi chú xử lý</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/history/{id}</code></td>
+<td>Lịch sử trạng thái đơn</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/order-by-user</code></td>
+<td>Danh sách đơn theo user</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/count-order-user</code></td>
+<td>Thống kê số đơn theo user</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/count-order-staff</code></td>
+<td>Thống kê số đơn theo staff/admin</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/dashboard/{searchText}</code></td>
+<td>Chỉ số dashboard</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/pdf/generate/{id}</code></td>
+<td>Xuất PDF đơn</td>
+</tr>
+</tbody></table>
+<p>Kết luận: nhóm <code>/api/order/*</code> dùng tốt cho bước sau checkout. Luồng đặt đơn vẫn nên gọi <code>POST /api/cart/checkout</code> để giữ transaction cart, tồn kho và order item.</p>
+<h2>3. Quy ước chung</h2>
+<h3>3.1 Response wrapper</h3>
+<p>Tất cả API trả về <code>CommonResponse</code>:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;errorFileLog&quot;: &quot;&quot;,
+  &quot;data&quot;: {}
+}
+</code></pre>
+<p>Mã code đang dùng:</p>
+<table><thead><tr>
+<th>Code</th>
+<th>Ý nghĩa</th>
+</tr></thead><tbody>
+<tr>
+<td><code>0</code></td>
+<td>Thành công</td>
+</tr>
+<tr>
+<td><code>2</code></td>
+<td>Không tìm thấy</td>
+</tr>
+<tr>
+<td><code>3</code></td>
+<td>Đã tồn tại</td>
+</tr>
+<tr>
+<td><code>4</code></td>
+<td>Lỗi business/validation</td>
+</tr>
+<tr>
+<td><code>5</code></td>
+<td>Lỗi account hoặc auth</td>
+</tr>
+<tr>
+<td><code>12</code></td>
+<td>Token hết hạn</td>
+</tr>
+<tr>
+<td><code>9999</code></td>
+<td>Lỗi hệ thống</td>
+</tr>
+</tbody></table>
+<h3>3.2 Paging response</h3>
+<p>Các API search/list trả về <code>PageResponse&lt;T&gt;</code> trong <code>data</code>:</p>
+<pre data-lang="json"><code>
+{
+  &quot;content&quot;: [],
+  &quot;page&quot;: 0,
+  &quot;size&quot;: 10,
+  &quot;totalElements&quot;: 0,
+  &quot;totalPages&quot;: 0,
+  &quot;first&quot;: true,
+  &quot;last&quot;: true
+}
+</code></pre>
+<h3>3.3 Auth và role</h3>
+<ul>
+<li>Tất cả API nghiệp vụ dùng JWT Bearer token.</li>
+<li>Role chính: <code>ADMIN</code>, <code>STAFF</code>, <code>CUSTOMER</code>.</li>
+<li>Permission FE đang dùng:</li>
+</ul>
+<pre data-lang="text"><code>
+VIEW_DASHBOARD
+VIEW_ORDERS
+UPDATE_ORDER_STATUS
+CANCEL_ORDER
+VIEW_PRODUCTS
+EDIT_PRODUCTS
+EDIT_PRICE
+VIEW_USERS
+EDIT_USERS
+VIEW_SHOPS
+APPROVE_SHOPS
+</code></pre>
+<h3>3.4 Backward compatibility</h3>
+<ul>
+<li>Không phá payload cũ của <code>POST /api/cart/checkout</code>.</li>
+<li>Nếu request chỉ có <code>{ &quot;addressLine&quot;: &quot;...&quot; }</code>, backend vẫn xử lý như hiện tại.</li>
+<li>Payload mới chỉ mở rộng field, không đổi endpoint tạo đơn.</li>
+</ul>
+<h2>4. Tổng quan endpoint cần bổ sung</h2>
+<table><thead><tr>
+<th>Ưu tiên</th>
+<th>Endpoint</th>
+<th>Mục đích</th>
+</tr></thead><tbody>
+<tr>
+<td>P0</td>
+<td><code>POST /api/cart/checkout</code></td>
+<td>Mở rộng payload tạo đơn</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>GET /api/address</code></td>
+<td>Danh sách địa chỉ của user</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>GET /api/address/default</code></td>
+<td>Địa chỉ mặc định</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>POST /api/address</code></td>
+<td>Tạo địa chỉ</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>PUT /api/address/{id}</code></td>
+<td>Cập nhật địa chỉ</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>DELETE /api/address/{id}</code></td>
+<td>Xóa mềm địa chỉ</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>PUT /api/address/{id}/default</code></td>
+<td>Đặt địa chỉ mặc định</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>POST /api/location/current-address</code></td>
+<td>Lấy địa chỉ hiện tại bằng Google Maps phía BE</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>POST /api/shop/search</code></td>
+<td>Admin tìm kiếm shop</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>GET /api/shop/{id}</code></td>
+<td>Chi tiết shop</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>PUT /api/shop/approve/{id}</code></td>
+<td>Duyệt shop</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>PUT /api/shop/reject/{id}</code></td>
+<td>Từ chối shop</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>GET /api/user/get/user-detail</code></td>
+<td>Mở rộng permissions và shopContext</td>
+</tr>
+<tr>
+<td>P0</td>
+<td><code>PUT /api/user/update-permissions</code></td>
+<td>Cập nhật permission cho staff</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><code>POST /api/checkout/quote</code></td>
+<td>Tính tạm tính/phí ship/discount</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><code>GET /api/voucher/available</code></td>
+<td>Voucher khả dụng</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><code>POST /api/voucher/apply</code></td>
+<td>Kiểm tra áp voucher</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><code>POST /api/payment/vietqr/create</code></td>
+<td>Tạo giao dịch VietQR</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><code>GET /api/payment/{id}/status</code></td>
+<td>Trạng thái thanh toán</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><code>POST /api/payment/vietqr/webhook</code></td>
+<td>Webhook VietQR</td>
+</tr>
+<tr>
+<td>P1</td>
+<td><code>GET /api/pickup-point/search</code></td>
+<td>Danh sách điểm nhận</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><code>POST /api/conversation/start</code></td>
+<td>Tạo/lấy conversation</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><code>GET /api/conversation</code></td>
+<td>Danh sách conversation</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><code>GET /api/conversation/{id}/messages</code></td>
+<td>Tin nhắn</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><code>POST /api/conversation/{id}/messages</code></td>
+<td>Gửi tin nhắn</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><code>POST /api/product/review/search</code></td>
+<td>Danh sách sản phẩm chờ duyệt</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><code>PUT /api/product/review/{id}/approve</code></td>
+<td>Duyệt sản phẩm</td>
+</tr>
+<tr>
+<td>P2</td>
+<td><code>PUT /api/product/review/{id}/reject</code></td>
+<td>Từ chối sản phẩm</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>5. P0 - Checkout và tạo đơn</h2>
+<h3>5.1 Mở rộng <code>POST /api/cart/checkout</code></h3>
+<p><strong>Mục tiêu:</strong> tạo đơn từ cart với thông tin nhận hàng rõ ràng hơn, vẫn giữ transaction hiện tại.</p>
+<pre data-lang="http"><code>
+POST /api/cart/checkout
+Authorization: Bearer &lt;CUSTOMER token&gt;
+Content-Type: application/json
+</code></pre>
+<h4>Request legacy vẫn hợp lệ</h4>
+<pre data-lang="json"><code>
+{
+  &quot;addressLine&quot;: &quot;Nguyen Van A - 0900000000 | 42 Nguyen Hue, Quan 1, TP.HCM&quot;
+}
+</code></pre>
+<h4>Request mới</h4>
+<pre data-lang="json"><code>
+{
+  &quot;deliveryMethod&quot;: &quot;DELIVERY&quot;,
+  &quot;recipientName&quot;: &quot;Nguyen Van A&quot;,
+  &quot;recipientPhone&quot;: &quot;0900000000&quot;,
+  &quot;addressId&quot;: &quot;address-uuid&quot;,
+  &quot;addressLine&quot;: &quot;42 Nguyen Hue, Quan 1, TP.HCM&quot;,
+  &quot;note&quot;: &quot;Goi truoc khi giao&quot;,
+  &quot;paymentMethod&quot;: &quot;COD&quot;,
+  &quot;voucherCode&quot;: null,
+  &quot;pickupPointId&quot;: null,
+  &quot;scheduledReceiveAt&quot;: null
+}
+</code></pre>
+<h4>Field rules</h4>
+<table><thead><tr>
+<th>Field</th>
+<th>Required</th>
+<th>Rule</th>
+</tr></thead><tbody>
+<tr>
+<td><code>deliveryMethod</code></td>
+<td>No</td>
+<td>Default <code>DELIVERY</code>; enum <code>DELIVERY</code>, <code>PICKUP</code>, <code>LATER</code></td>
+</tr>
+<tr>
+<td><code>recipientName</code></td>
+<td>No</td>
+<td>Nếu thiếu thì fallback profile fullName</td>
+</tr>
+<tr>
+<td><code>recipientPhone</code></td>
+<td>No</td>
+<td>Nếu thiếu thì fallback profile phone</td>
+</tr>
+<tr>
+<td><code>addressId</code></td>
+<td>No</td>
+<td>Nếu có thì phải thuộc current user</td>
+</tr>
+<tr>
+<td><code>addressLine</code></td>
+<td>Yes với delivery legacy</td>
+<td>Không được rỗng khi <code>DELIVERY</code></td>
+</tr>
+<tr>
+<td><code>note</code></td>
+<td>No</td>
+<td>Tối đa 500 ký tự</td>
+</tr>
+<tr>
+<td><code>paymentMethod</code></td>
+<td>No</td>
+<td>Default <code>COD</code>; enum <code>COD</code>, <code>VIETQR</code></td>
+</tr>
+<tr>
+<td><code>voucherCode</code></td>
+<td>No</td>
+<td>Chỉ áp dụng khi voucher API hoàn tất</td>
+</tr>
+<tr>
+<td><code>pickupPointId</code></td>
+<td>Yes với <code>PICKUP</code></td>
+<td>Phải tồn tại và active</td>
+</tr>
+<tr>
+<td><code>scheduledReceiveAt</code></td>
+<td>No</td>
+<td>Dùng cho <code>LATER</code></td>
+</tr>
+</tbody></table>
+<h4>Response success</h4>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Dat hang thanh cong&quot;,
+  &quot;data&quot;: {
+    &quot;orderId&quot;: &quot;order-uuid&quot;,
+    &quot;orderCode&quot;: &quot;ORDER-123456&quot;,
+    &quot;status&quot;: &quot;PENDING&quot;,
+    &quot;totalAmount&quot;: 12990000,
+    &quot;shippingFee&quot;: null,
+    &quot;paymentMethod&quot;: &quot;COD&quot;,
+    &quot;paymentStatus&quot;: &quot;UNPAID&quot;
+  }
+}
+</code></pre>
+<h4>Business rules</h4>
+<ul>
+<li>Chỉ <code>CUSTOMER</code> được checkout cart của chính mình.</li>
+<li>Cart rỗng trả <code>code = 2</code>.</li>
+<li>Item đã xóa hoặc inactive không được checkout.</li>
+<li>Nếu tồn kho không đủ, trả lỗi business kèm danh sách item lỗi.</li>
+<li>Tạo order, order item, trừ tồn kho và clear cart trong cùng transaction.</li>
+<li>COD tạo order <code>PENDING</code>.</li>
+<li>VietQR có thể tạo order <code>PENDING_PAYMENT</code> hoặc giữ <code>PENDING</code> kèm <code>statusTransaction = PENDING</code>, tùy model BE chọn; FE chỉ cần response rõ <code>paymentStatus</code>.</li>
+<li>Nếu dùng <code>addressId</code>, backend lấy <code>addressLine</code> tại thời điểm checkout và copy vào order để tránh thay đổi lịch sử khi user sửa địa chỉ sau này.</li>
+<li>Không lưu tọa độ GPS vào order trong v1.</li>
+</ul>
+<h4>Error cases</h4>
+<table><thead><tr>
+<th>Case</th>
+<th>Code</th>
+<th>Message gợi ý</th>
+</tr></thead><tbody>
+<tr>
+<td>Chưa đăng nhập</td>
+<td><code>5</code> hoặc <code>12</code></td>
+<td><code>Vui long dang nhap de thanh toan</code></td>
+</tr>
+<tr>
+<td>Cart rỗng</td>
+<td><code>2</code></td>
+<td><code>Gio hang khong co san pham</code></td>
+</tr>
+<tr>
+<td>Thiếu địa chỉ delivery</td>
+<td><code>4</code></td>
+<td><code>Vui long nhap dia chi giao hang</code></td>
+</tr>
+<tr>
+<td>Address không thuộc user</td>
+<td><code>4</code></td>
+<td><code>Dia chi khong hop le</code></td>
+</tr>
+<tr>
+<td>Hết hàng</td>
+<td><code>4</code></td>
+<td><code>Mot so san pham khong du ton kho</code></td>
+</tr>
+<tr>
+<td>Voucher không hợp lệ</td>
+<td><code>4</code></td>
+<td><code>Voucher khong hop le</code></td>
+</tr>
+</tbody></table>
+<h4>FE sử dụng</h4>
+<ul>
+<li><code>/checkout</code></li>
+<li><code>/cart-screen</code> chuyển sang checkout</li>
+<li>Sau success điều hướng về <code>/settings/{id}/overview</code></li>
+</ul>
+<h4>Acceptance tests</h4>
+<ul>
+<li>Payload cũ <code>{ addressLine }</code> vẫn tạo đơn thành công.</li>
+<li>Payload mới delivery tạo đơn, copy đúng recipient/address/note.</li>
+<li>Pickup không bắt <code>addressLine</code>, bắt <code>pickupPointId</code>.</li>
+<li>Tồn kho bị trừ đúng và cart item bị checkout.</li>
+<li>Khi lỗi tồn kho, không tạo order và không trừ item nào.</li>
+</ul>
+<h3>5.2 DB impact gợi ý cho order</h3>
+<p>Hiện <code>Order</code> đã có <code>addressDetail</code>, <code>methodTransaction</code>, <code>description</code>, <code>statusTransaction</code>, <code>shippingFee</code>.</p>
+<p>Để hỗ trợ payload mới rõ ràng hơn, BE nên cân nhắc thêm cột:</p>
+<table><thead><tr>
+<th>Column</th>
+<th>Type gợi ý</th>
+<th>Ghi chú</th>
+</tr></thead><tbody>
+<tr>
+<td><code>delivery_method</code></td>
+<td>varchar(30)</td>
+<td><code>DELIVERY</code>, <code>PICKUP</code>, <code>LATER</code></td>
+</tr>
+<tr>
+<td><code>recipient_name</code></td>
+<td>nvarchar(255)</td>
+<td>Snapshot lúc checkout</td>
+</tr>
+<tr>
+<td><code>recipient_phone</code></td>
+<td>varchar(30)</td>
+<td>Snapshot lúc checkout</td>
+</tr>
+<tr>
+<td><code>payment_method</code></td>
+<td>varchar(30)</td>
+<td><code>COD</code>, <code>VIETQR</code></td>
+</tr>
+<tr>
+<td><code>voucher_code</code></td>
+<td>varchar(100)</td>
+<td>nullable</td>
+</tr>
+<tr>
+<td><code>discount_amount</code></td>
+<td>decimal</td>
+<td>default 0</td>
+</tr>
+<tr>
+<td><code>pickup_point_id</code></td>
+<td>varchar(50)</td>
+<td>nullable</td>
+</tr>
+<tr>
+<td><code>scheduled_receive_at</code></td>
+<td>datetimeoffset</td>
+<td>nullable</td>
+</tr>
+</tbody></table>
+<p>Nếu chưa muốn migration lớn, v1 có thể tiếp tục encode vào <code>addressDetail</code> và <code>description</code>, nhưng response nên trả DTO rõ ràng cho FE.</p>
+<hr>
+<h2>6. P0 - Address book</h2>
+<p>Entity <code>Address</code> đã tồn tại nhưng chưa có controller. Cần bổ sung controller/service/repository scope theo current user.</p>
+<h3>6.1 Address DTO</h3>
+<pre data-lang="json"><code>
+{
+  &quot;id&quot;: &quot;address-uuid&quot;,
+  &quot;addressLine&quot;: &quot;42 Nguyen Hue, Ben Nghe, Quan 1&quot;,
+  &quot;city&quot;: &quot;TP.HCM&quot;,
+  &quot;district&quot;: &quot;Quan 1&quot;,
+  &quot;postalCode&quot;: &quot;700000&quot;,
+  &quot;isDefault&quot;: true,
+  &quot;createdAt&quot;: &quot;2026-04-28T10:00:00+07:00&quot;,
+  &quot;updatedAt&quot;: &quot;2026-04-28T10:00:00+07:00&quot;
+}
+</code></pre>
+<h3>6.2 <code>GET /api/address</code></h3>
+<pre data-lang="http"><code>
+GET /api/address
+Authorization: Bearer &lt;CUSTOMER token&gt;
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: [
+    {
+      &quot;id&quot;: &quot;address-uuid&quot;,
+      &quot;addressLine&quot;: &quot;42 Nguyen Hue, Quan 1, TP.HCM&quot;,
+      &quot;city&quot;: &quot;TP.HCM&quot;,
+      &quot;district&quot;: &quot;Quan 1&quot;,
+      &quot;postalCode&quot;: &quot;700000&quot;,
+      &quot;isDefault&quot;: true
+    }
+  ]
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Chỉ trả địa chỉ của current user.</li>
+<li>Sort default trước, sau đó updatedAt desc.</li>
+</ul>
+<h3>6.3 <code>GET /api/address/default</code></h3>
+<pre data-lang="http"><code>
+GET /api/address/default
+Authorization: Bearer &lt;CUSTOMER token&gt;
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Nếu chưa có default nhưng có address, trả address mới nhất.</li>
+<li>Nếu chưa có address, trả <code>data = null</code>, <code>code = 0</code>.</li>
+</ul>
+<h3>6.4 <code>POST /api/address</code></h3>
+<pre data-lang="http"><code>
+POST /api/address
+Authorization: Bearer &lt;CUSTOMER token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;addressLine&quot;: &quot;42 Nguyen Hue, Quan 1, TP.HCM&quot;,
+  &quot;city&quot;: &quot;TP.HCM&quot;,
+  &quot;district&quot;: &quot;Quan 1&quot;,
+  &quot;postalCode&quot;: &quot;700000&quot;,
+  &quot;isDefault&quot;: true
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li><code>addressLine</code> required.</li>
+<li>Nếu <code>isDefault = true</code>, unset default của address khác cùng user.</li>
+<li>Nếu đây là address đầu tiên của user, tự set default.</li>
+</ul>
+<h3>6.5 <code>PUT /api/address/{id}</code></h3>
+<p>Request giống create.</p>
+<p>Rules:</p>
+<ul>
+<li>Không cho update address của user khác.</li>
+<li>Nếu set default thì unset default cũ.</li>
+</ul>
+<h3>6.6 <code>DELETE /api/address/{id}</code></h3>
+<p>Rules:</p>
+<ul>
+<li>Xóa mềm nếu entity có <code>isDeleted</code>; nếu chưa có thì hard delete cũng được trong v1.</li>
+<li>Không cho xóa address của user khác.</li>
+<li>Nếu xóa default, tự chọn address còn lại mới nhất làm default.</li>
+</ul>
+<h3>6.7 <code>PUT /api/address/{id}/default</code></h3>
+<p>Rules:</p>
+<ul>
+<li>Address phải thuộc current user.</li>
+<li>Chỉ một default address/user.</li>
+</ul>
+<h3>Acceptance tests</h3>
+<ul>
+<li>User A không đọc/sửa/xóa address của User B.</li>
+<li>Tạo address đầu tiên tự thành default.</li>
+<li>Set default mới làm default cũ chuyển false.</li>
+<li>Checkout bằng <code>addressId</code> chỉ nhận address thuộc user hiện tại.</li>
+</ul>
+<hr>
+<h2>7. P0 - Server-side Google Maps location</h2>
+<h3>7.1 <code>POST /api/location/current-address</code></h3>
+<p><strong>Mục tiêu:</strong> FE bấm &quot;Lấy vị trí hiện tại&quot;, backend gọi Google Maps bằng server key và chỉ trả về địa chỉ text. Không trả tọa độ cho FE.</p>
+<pre data-lang="http"><code>
+POST /api/location/current-address
+Authorization: Bearer &lt;CUSTOMER token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request v1:</p>
+<pre data-lang="json"><code>
+{
+  &quot;considerIp&quot;: true
+}
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: {
+    &quot;address&quot;: &quot;Quan 1, Thanh pho Ho Chi Minh, Viet Nam&quot;,
+    &quot;source&quot;: &quot;GOOGLE_MAPS&quot;,
+    &quot;accuracyMeters&quot;: 1200
+  }
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Backend đọc env <code>GOOGLE_MAPS_API_KEY</code>.</li>
+<li>Không log API key.</li>
+<li>Không trả <code>lat</code>, <code>lng</code> về FE.</li>
+<li>Không lưu location tự động vào profile/address.</li>
+<li>Nếu Google không trả địa chỉ rõ, trả <code>code = 4</code>.</li>
+</ul>
+<p>Lưu ý kỹ thuật:</p>
+<ul>
+<li>Google Geolocation API nội bộ vẫn trả <code>lat/lng</code>; BE chỉ dùng tạm để gọi Geocoding API lấy <code>formatted_address</code>.</li>
+<li>Nếu FE không gửi browser GPS/cell/wifi signal, Google chủ yếu định vị theo IP nên độ chính xác hạn chế. Đây là tradeoff để đáp ứng yêu cầu &quot;không lấy tọa độ&quot; ở payload/public response.</li>
+</ul>
+<p>Error cases:</p>
+<table><thead><tr>
+<th>Case</th>
+<th>Code</th>
+<th>Message gợi ý</th>
+</tr></thead><tbody>
+<tr>
+<td>Thiếu key</td>
+<td><code>9999</code></td>
+<td><code>Google Maps key is not configured</code></td>
+</tr>
+<tr>
+<td>Google quota/rate limit</td>
+<td><code>4</code></td>
+<td><code>Khong the lay dia chi hien tai</code></td>
+</tr>
+<tr>
+<td>Không có formatted address</td>
+<td><code>4</code></td>
+<td><code>Google khong tra ve dia chi ro rang</code></td>
+</tr>
+</tbody></table>
+<p>FE sử dụng:</p>
+<ul>
+<li><code>/checkout</code>, nút lấy vị trí cạnh &quot;Địa chỉ giao hàng&quot;.</li>
+</ul>
+<p>Acceptance tests:</p>
+<ul>
+<li>API không trả field <code>lat</code> hoặc <code>lng</code>.</li>
+<li>Thiếu key không expose secret trong message/log.</li>
+<li>Google fail thì FE vẫn cho nhập địa chỉ thủ công.</li>
+</ul>
+<hr>
+<h2>8. P0 - Shop approval</h2>
+<p>Backend hiện có <code>POST /api/shop/register</code>; cần bổ sung API để admin xem và duyệt shop.</p>
+<h3>8.1 Shop list item</h3>
+<pre data-lang="json"><code>
+{
+  &quot;id&quot;: &quot;shop-registration-uuid&quot;,
+  &quot;shopName&quot;: &quot;Phone Store A&quot;,
+  &quot;description&quot;: &quot;Chuyen iPhone cu&quot;,
+  &quot;status&quot;: &quot;PENDING&quot;,
+  &quot;ownerId&quot;: &quot;user-uuid&quot;,
+  &quot;ownerName&quot;: &quot;Nguyen Van A&quot;,
+  &quot;avatarUrl&quot;: &quot;uploads/shop/avatar.png&quot;,
+  &quot;bannerUrl&quot;: &quot;uploads/shop/banner.png&quot;,
+  &quot;cccdUrl&quot;: &quot;uploads/shop/cccd.png&quot;,
+  &quot;createdAt&quot;: &quot;2026-04-28T10:00:00+07:00&quot;,
+  &quot;rejectionReason&quot;: null
+}
+</code></pre>
+<h3>8.2 <code>POST /api/shop/search</code></h3>
+<pre data-lang="http"><code>
+POST /api/shop/search
+Authorization: Bearer &lt;ADMIN or VIEW_SHOPS token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;searchText&quot;: &quot;phone&quot;,
+  &quot;status&quot;: &quot;PENDING&quot;,
+  &quot;page&quot;: 0,
+  &quot;size&quot;: 10
+}
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: {
+    &quot;content&quot;: [],
+    &quot;page&quot;: 0,
+    &quot;size&quot;: 10,
+    &quot;totalElements&quot;: 0,
+    &quot;totalPages&quot;: 0,
+    &quot;first&quot;: true,
+    &quot;last&quot;: true
+  }
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li><code>status</code>: <code>PENDING</code>, <code>APPROVED</code>, <code>REJECTED</code>; null nghĩa là all.</li>
+<li><code>searchText</code> search theo shopName, owner username, owner fullName.</li>
+<li>Chỉ admin hoặc user có permission <code>VIEW_SHOPS</code>.</li>
+</ul>
+<h3>8.3 <code>GET /api/shop/{id}</code></h3>
+<pre data-lang="http"><code>
+GET /api/shop/{id}
+Authorization: Bearer &lt;ADMIN or VIEW_SHOPS token&gt;
+</code></pre>
+<p>Response <code>data</code> gồm:</p>
+<ul>
+<li>Thông tin shop registration.</li>
+<li>Owner summary.</li>
+<li>Payment methods.</li>
+<li>File URLs: avatar, banner, cccd.</li>
+<li>Product count nếu có.</li>
+</ul>
+<h3>8.4 <code>PUT /api/shop/approve/{id}</code></h3>
+<pre data-lang="http"><code>
+PUT /api/shop/approve/{id}
+Authorization: Bearer &lt;ADMIN or APPROVE_SHOPS token&gt;
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Chỉ duyệt shop <code>PENDING</code> hoặc duyệt lại shop <code>REJECTED</code>.</li>
+<li>Set status <code>APPROVED</code>.</li>
+<li>Clear <code>rejectionReason</code>.</li>
+<li>Đảm bảo owner có role/permission bán hàng phù hợp. Hiện code register đã set role <code>STAFF</code>; nếu duyệt mới đổi role thì chuyển logic set role sang approve sẽ đúng hơn.</li>
+</ul>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Duyet shop thanh cong&quot;,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;shop-registration-uuid&quot;,
+    &quot;status&quot;: &quot;APPROVED&quot;
+  }
+}
+</code></pre>
+<h3>8.5 <code>PUT /api/shop/reject/{id}</code></h3>
+<pre data-lang="http"><code>
+PUT /api/shop/reject/{id}
+Authorization: Bearer &lt;ADMIN or APPROVE_SHOPS token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;reason&quot;: &quot;Anh CCCD khong ro&quot;
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li><code>reason</code> required, tối đa 500 ký tự.</li>
+<li>Set status <code>REJECTED</code>.</li>
+<li>Lưu <code>rejectionReason</code>.</li>
+<li>Không xóa shop record hoặc file đã upload.</li>
+</ul>
+<p>FE sử dụng:</p>
+<ul>
+<li><code>/admin-store/shops</code></li>
+<li>Dashboard block pending shops.</li>
+</ul>
+<p>Acceptance tests:</p>
+<ul>
+<li>Search trả đúng tab pending/approved/rejected.</li>
+<li>Không có <code>APPROVE_SHOPS</code> thì reject/approve bị từ chối.</li>
+<li>Reject lưu reason và detail trả lại reason.</li>
+</ul>
+<hr>
+<h2>9. P0 - Permission và shop context</h2>
+<h3>9.1 Mở rộng <code>GET /api/user/get/user-detail</code></h3>
+<p>Endpoint đã có. Cần mở rộng <code>data</code>.</p>
+<p>Response hiện tại vẫn giữ field cũ, thêm:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: {
+    &quot;id&quot;: &quot;user-uuid&quot;,
+    &quot;loginId&quot;: &quot;staff01&quot;,
+    &quot;fullName&quot;: &quot;Staff 01&quot;,
+    &quot;role&quot;: &quot;STAFF&quot;,
+    &quot;permissions&quot;: [
+      &quot;VIEW_DASHBOARD&quot;,
+      &quot;VIEW_ORDERS&quot;,
+      &quot;UPDATE_ORDER_STATUS&quot;,
+      &quot;VIEW_PRODUCTS&quot;,
+      &quot;EDIT_PRODUCTS&quot;
+    ],
+    &quot;shopContext&quot;: {
+      &quot;shopId&quot;: &quot;shop-registration-uuid&quot;,
+      &quot;shopName&quot;: &quot;Phone Store A&quot;,
+      &quot;status&quot;: &quot;APPROVED&quot;,
+      &quot;ownerId&quot;: &quot;user-uuid&quot;
+    }
+  }
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li><code>permissions</code> lấy từ DB nếu đã có bảng permission; nếu chưa có thì derive theo role.</li>
+<li><code>shopContext</code> trả shop approved/pending mới nhất của user nếu user là staff/shop owner.</li>
+<li>Customer có thể trả <code>permissions = []</code>, <code>shopContext = null</code>.</li>
+</ul>
+<p>FE sử dụng:</p>
+<ul>
+<li><code>AuthContext</code></li>
+<li>Route guard admin-store.</li>
+<li>Navbar admin-store hiển thị shop name.</li>
+</ul>
+<h3>9.2 <code>PUT /api/user/update-permissions</code></h3>
+<pre data-lang="http"><code>
+PUT /api/user/update-permissions
+Authorization: Bearer &lt;ADMIN or EDIT_USERS token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;userId&quot;: &quot;staff-user-uuid&quot;,
+  &quot;permissions&quot;: [
+    &quot;VIEW_ORDERS&quot;,
+    &quot;UPDATE_ORDER_STATUS&quot;,
+    &quot;VIEW_PRODUCTS&quot;
+  ]
+}
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Cap nhat quyen thanh cong&quot;,
+  &quot;data&quot;: {
+    &quot;userId&quot;: &quot;staff-user-uuid&quot;,
+    &quot;permissions&quot;: [
+      &quot;VIEW_ORDERS&quot;,
+      &quot;UPDATE_ORDER_STATUS&quot;,
+      &quot;VIEW_PRODUCTS&quot;
+    ]
+  }
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Chỉ admin hoặc user có <code>EDIT_USERS</code>.</li>
+<li>Không cho tự gỡ quyền cuối cùng khiến tài khoản admin hiện tại mất quyền quản trị nếu đó là admin duy nhất.</li>
+<li>Validate permission name thuộc allowlist FE đang dùng.</li>
+<li>Nếu user role <code>CUSTOMER</code>, không cho gán admin-store permission.</li>
+</ul>
+<p>DB gợi ý:</p>
+<ul>
+<li><code>permissions(id, code, description)</code></li>
+<li><code>user_permissions(user_id, permission_id)</code></li>
+</ul>
+<p>Acceptance tests:</p>
+<ul>
+<li>Update permission xong login/get-user-detail trả đúng permission mới.</li>
+<li>Permission lạ trả <code>code = 4</code>.</li>
+<li>Staff không có <code>EDIT_USERS</code> không gọi được.</li>
+</ul>
+<hr>
+<h2>10. P1 - Checkout quote</h2>
+<h3>10.1 <code>POST /api/checkout/quote</code></h3>
+<p><strong>Mục tiêu:</strong> FE biết tổng tiền, phí ship, discount trước khi tạo order.</p>
+<pre data-lang="http"><code>
+POST /api/checkout/quote
+Authorization: Bearer &lt;CUSTOMER token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;deliveryMethod&quot;: &quot;DELIVERY&quot;,
+  &quot;addressId&quot;: &quot;address-uuid&quot;,
+  &quot;addressLine&quot;: &quot;42 Nguyen Hue, Quan 1, TP.HCM&quot;,
+  &quot;voucherCode&quot;: &quot;PHONEP2P50&quot;,
+  &quot;pickupPointId&quot;: null
+}
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: {
+    &quot;subtotal&quot;: 12990000,
+    &quot;shippingFee&quot;: 30000,
+    &quot;discountAmount&quot;: 50000,
+    &quot;totalAmount&quot;: 12970000,
+    &quot;lineItems&quot;: [
+      {
+        &quot;cartItemId&quot;: &quot;cart-item-uuid&quot;,
+        &quot;productName&quot;: &quot;iPhone 14&quot;,
+        &quot;quantity&quot;: 1,
+        &quot;unitPrice&quot;: 12990000,
+        &quot;amount&quot;: 12990000
+      }
+    ],
+    &quot;voucher&quot;: {
+      &quot;code&quot;: &quot;PHONEP2P50&quot;,
+      &quot;discountAmount&quot;: 50000
+    }
+  }
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Không tạo order.</li>
+<li>Không trừ tồn kho.</li>
+<li>Quote phải dùng cùng logic giá với checkout.</li>
+<li>Checkout nên re-calculate lại quote server-side, không tin total từ FE.</li>
+</ul>
+<p>FE sử dụng:</p>
+<ul>
+<li><code>/checkout</code> summary.</li>
+</ul>
+<p>Acceptance tests:</p>
+<ul>
+<li>Quote không thay đổi cart.</li>
+<li>Voucher invalid trả lỗi nhưng không checkout.</li>
+<li>Total = subtotal + shippingFee - discountAmount.</li>
+</ul>
+<hr>
+<h2>11. P1 - Voucher</h2>
+<h3>11.1 Voucher DTO</h3>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: &quot;PHONEP2P50&quot;,
+  &quot;title&quot;: &quot;Giam 50K&quot;,
+  &quot;description&quot;: &quot;Ap dung cho don tu 1 trieu&quot;,
+  &quot;discountType&quot;: &quot;FIXED&quot;,
+  &quot;discountValue&quot;: 50000,
+  &quot;minSubtotal&quot;: 1000000,
+  &quot;maxDiscount&quot;: 50000,
+  &quot;startsAt&quot;: &quot;2026-04-01T00:00:00+07:00&quot;,
+  &quot;endsAt&quot;: &quot;2026-05-01T00:00:00+07:00&quot;
+}
+</code></pre>
+<h3>11.2 <code>GET /api/voucher/available</code></h3>
+<pre data-lang="http"><code>
+GET /api/voucher/available
+Authorization: Bearer &lt;CUSTOMER token&gt;
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: []
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Chỉ trả voucher active, chưa hết hạn, user có thể dùng.</li>
+<li>Có thể filter theo subtotal/cart current user.</li>
+</ul>
+<h3>11.3 <code>POST /api/voucher/apply</code></h3>
+<pre data-lang="http"><code>
+POST /api/voucher/apply
+Authorization: Bearer &lt;CUSTOMER token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: &quot;PHONEP2P50&quot;,
+  &quot;subtotal&quot;: 12990000
+}
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: {
+    &quot;code&quot;: &quot;PHONEP2P50&quot;,
+    &quot;discountAmount&quot;: 50000,
+    &quot;finalSubtotal&quot;: 12940000
+  }
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Apply API chỉ kiểm tra/tính discount, không đánh dấu đã dùng.</li>
+<li>Checkout mới là nơi consume voucher trong transaction tạo order.</li>
+</ul>
+<hr>
+<h2>12. P1 - VietQR payment</h2>
+<h3>12.1 <code>POST /api/payment/vietqr/create</code></h3>
+<pre data-lang="http"><code>
+POST /api/payment/vietqr/create
+Authorization: Bearer &lt;CUSTOMER token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;orderId&quot;: &quot;order-uuid&quot;,
+  &quot;amount&quot;: 12970000
+}
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: {
+    &quot;paymentId&quot;: &quot;payment-uuid&quot;,
+    &quot;orderId&quot;: &quot;order-uuid&quot;,
+    &quot;amount&quot;: 12970000,
+    &quot;status&quot;: &quot;PENDING&quot;,
+    &quot;qrCodeUrl&quot;: &quot;https://...&quot;,
+    &quot;qrContent&quot;: &quot;PHONEP2P ORDER-123456&quot;,
+    &quot;expiresAt&quot;: &quot;2026-04-28T10:15:00+07:00&quot;
+  }
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Chỉ tạo payment cho order của current user.</li>
+<li>Không tạo payment nếu order đã paid/cancelled/completed.</li>
+<li><code>amount</code> phải khớp order total server-side.</li>
+</ul>
+<h3>12.2 <code>GET /api/payment/{id}/status</code></h3>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: {
+    &quot;paymentId&quot;: &quot;payment-uuid&quot;,
+    &quot;orderId&quot;: &quot;order-uuid&quot;,
+    &quot;status&quot;: &quot;PAID&quot;,
+    &quot;paidAt&quot;: &quot;2026-04-28T10:05:00+07:00&quot;
+  }
+}
+</code></pre>
+<h3>12.3 <code>POST /api/payment/vietqr/webhook</code></h3>
+<p>Rules:</p>
+<ul>
+<li>Xác thực chữ ký/secret từ provider.</li>
+<li>Idempotent theo transaction id.</li>
+<li>Khi paid, set payment <code>PAID</code>, order <code>statusTransaction = PAID</code>.</li>
+<li>Không expose webhook secret trong log.</li>
+</ul>
+<p>FE sử dụng:</p>
+<ul>
+<li><code>/checkout</code> khi chọn VietQR.</li>
+<li><code>/settings/{id}/overview</code> xem trạng thái thanh toán.</li>
+</ul>
+<hr>
+<h2>13. P1 - Pickup point</h2>
+<h3>13.1 <code>GET /api/pickup-point/search</code></h3>
+<pre data-lang="http"><code>
+GET /api/pickup-point/search?searchText=&amp;city=&amp;active=true
+Authorization: Bearer &lt;token&gt;
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: [
+    {
+      &quot;id&quot;: &quot;pickup-uuid&quot;,
+      &quot;name&quot;: &quot;PhoneP2P Hub Nguyen Hue&quot;,
+      &quot;addressLine&quot;: &quot;Tang 2, 42 Nguyen Hue, Quan 1, TP.HCM&quot;,
+      &quot;city&quot;: &quot;TP.HCM&quot;,
+      &quot;district&quot;: &quot;Quan 1&quot;,
+      &quot;active&quot;: true,
+      &quot;openingHours&quot;: &quot;09:00-18:00&quot;
+    }
+  ]
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Customer dùng để chọn pickup tại checkout.</li>
+<li>Admin có thể bổ sung CRUD ở phase sau:</li>
+<li><code>POST /api/pickup-point</code></li>
+<li><code>PUT /api/pickup-point/{id}</code></li>
+<li><code>DELETE /api/pickup-point/{id}</code></li>
+</ul>
+<hr>
+<h2>14. P2 - Chat buyer/seller</h2>
+<h3>14.1 <code>POST /api/conversation/start</code></h3>
+<pre data-lang="http"><code>
+POST /api/conversation/start
+Authorization: Bearer &lt;CUSTOMER token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;productId&quot;: &quot;product-uuid&quot;,
+  &quot;sellerId&quot;: &quot;seller-user-uuid&quot;,
+  &quot;initialMessage&quot;: &quot;San pham nay con hang khong?&quot;
+}
+</code></pre>
+<p>Response:</p>
+<pre data-lang="json"><code>
+{
+  &quot;code&quot;: 0,
+  &quot;message&quot;: &quot;Success&quot;,
+  &quot;data&quot;: {
+    &quot;conversationId&quot;: &quot;conversation-uuid&quot;,
+    &quot;productId&quot;: &quot;product-uuid&quot;,
+    &quot;buyerId&quot;: &quot;buyer-user-uuid&quot;,
+    &quot;sellerId&quot;: &quot;seller-user-uuid&quot;
+  }
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Nếu conversation buyer/seller/product đã tồn tại thì trả conversation cũ.</li>
+<li>Không cho user tự chat với chính mình.</li>
+</ul>
+<h3>14.2 <code>GET /api/conversation</code></h3>
+<p>Query:</p>
+<pre data-lang="http"><code>
+GET /api/conversation?page=0&amp;size=20
+</code></pre>
+<p>Trả danh sách conversation của current user.</p>
+<h3>14.3 <code>GET /api/conversation/{id}/messages</code></h3>
+<p>Trả message theo page.</p>
+<h3>14.4 <code>POST /api/conversation/{id}/messages</code></h3>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;content&quot;: &quot;Con hang ban nhe&quot;,
+  &quot;attachments&quot;: []
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Chỉ participant của conversation được đọc/gửi.</li>
+<li>Message tối đa 2000 ký tự.</li>
+<li>Phase đầu chưa cần realtime; FE có thể polling.</li>
+</ul>
+<p>FE sử dụng:</p>
+<ul>
+<li>Product detail page, nút nhắn người bán.</li>
+<li>Có thể thêm inbox sau.</li>
+</ul>
+<hr>
+<h2>15. P2 - Product review/approval</h2>
+<p>Hiện FE có placeholder <code>admin-store/products/veryfi-products.tsx</code>. ProductStatus hiện có: <code>ACTIVE</code>, <code>INACTIVE</code>, <code>OUT_OF_STOCK</code>, <code>DISCONTINUED</code>, <code>DRAFT</code>.</p>
+<p>Gợi ý bổ sung enum:</p>
+<pre data-lang="text"><code>
+PENDING_REVIEW
+REJECTED
+</code></pre>
+<h3>15.1 <code>POST /api/product/review/search</code></h3>
+<pre data-lang="http"><code>
+POST /api/product/review/search
+Authorization: Bearer &lt;ADMIN or VIEW_PRODUCTS token&gt;
+Content-Type: application/json
+</code></pre>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;searchText&quot;: &quot;iphone&quot;,
+  &quot;status&quot;: &quot;PENDING_REVIEW&quot;,
+  &quot;page&quot;: 0,
+  &quot;size&quot;: 10
+}
+</code></pre>
+<p>Response dùng <code>PageResponse&lt;ProductListItem&gt;</code>.</p>
+<h3>15.2 <code>PUT /api/product/review/{id}/approve</code></h3>
+<p>Rules:</p>
+<ul>
+<li>Chỉ admin hoặc user có permission phù hợp.</li>
+<li>Product <code>PENDING_REVIEW</code> chuyển <code>ACTIVE</code>.</li>
+<li>Ghi moderation history.</li>
+</ul>
+<h3>15.3 <code>PUT /api/product/review/{id}/reject</code></h3>
+<p>Request:</p>
+<pre data-lang="json"><code>
+{
+  &quot;reason&quot;: &quot;Anh san pham khong ro&quot;
+}
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Reason required.</li>
+<li>Product chuyển <code>REJECTED</code>.</li>
+<li>Staff/shop owner xem được reason để chỉnh sửa.</li>
+</ul>
+<p>DB gợi ý:</p>
+<ul>
+<li><code>product_moderation_histories(id, product_id, status, reason, reviewer_id, created_at)</code>.</li>
+</ul>
+<hr>
+<h2>16. Security và phân quyền đề xuất</h2>
+<table><thead><tr>
+<th>API group</th>
+<th>CUSTOMER</th>
+<th>STAFF</th>
+<th>ADMIN</th>
+</tr></thead><tbody>
+<tr>
+<td>Cart checkout</td>
+<td>Own cart</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Address</td>
+<td>Own address</td>
+<td>No</td>
+<td>Optional support read-only</td>
+</tr>
+<tr>
+<td>Location current address</td>
+<td>Own session</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Order search/detail/history</td>
+<td>Own order via user APIs</td>
+<td>Scoped by shop/seller</td>
+<td>All</td>
+</tr>
+<tr>
+<td>Order update</td>
+<td>No</td>
+<td>Scoped seller orders</td>
+<td>All</td>
+</tr>
+<tr>
+<td>Shop search/detail</td>
+<td>No</td>
+<td>If <code>VIEW_SHOPS</code></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Shop approve/reject</td>
+<td>No</td>
+<td>If <code>APPROVE_SHOPS</code></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Permission update</td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>Payment create/status</td>
+<td>Own order</td>
+<td>No</td>
+<td>Read/admin optional</td>
+</tr>
+<tr>
+<td>Chat</td>
+<td>Own conversations</td>
+<td>Own conversations</td>
+<td>Optional moderation</td>
+</tr>
+<tr>
+<td>Product review</td>
+<td>No</td>
+<td>If permission</td>
+<td>Yes</td>
+</tr>
+</tbody></table>
+<h2>17. Rollout đề xuất</h2>
+<h3>Phase 1</h3>
+<ul>
+<li>Mở rộng <code>POST /api/cart/checkout</code>.</li>
+<li>Address CRUD.</li>
+<li>Server-side location address.</li>
+<li>Shop search/detail/approve/reject.</li>
+<li>Mở rộng user detail permissions/shopContext.</li>
+</ul>
+<h3>Phase 2</h3>
+<ul>
+<li>Checkout quote.</li>
+<li>Voucher.</li>
+<li>Pickup point.</li>
+<li>VietQR create/status/webhook.</li>
+</ul>
+<h3>Phase 3</h3>
+<ul>
+<li>Chat.</li>
+<li>Product review/approval.</li>
+<li>Settings/admin config API nếu cần.</li>
+</ul>
+<h2>18. Test checklist tổng hợp</h2>
+<ul>
+<li>Legacy checkout payload vẫn chạy.</li>
+<li>New checkout payload delivery/pickup/later chạy đúng.</li>
+<li>Checkout lỗi không tạo partial order.</li>
+<li>Address ownership không bị bypass.</li>
+<li>Location API không trả hoặc log tọa độ/API key.</li>
+<li>Shop approval đúng trạng thái và permission.</li>
+<li>User detail trả đúng permission/shopContext sau login.</li>
+<li>Quote không mutate cart/order.</li>
+<li>Voucher chỉ consume trong checkout transaction.</li>
+<li>VietQR webhook idempotent.</li>
+<li>Conversation chỉ participant đọc/gửi.</li>
+<li>Product review lưu lịch sử duyệt/từ chối.</li>
+</ul>
+<h2>19. Ghi chú cho FE</h2>
+<ul>
+<li>Khi BE có <code>POST /api/location/current-address</code>, FE nên bỏ gọi Google trực tiếp bằng public key và chuyển sang gọi API BE.</li>
+<li>Khi BE mở rộng checkout response DTO, FE không nên phụ thuộc vào entity <code>Order</code> raw.</li>
+<li>Khi <code>permissions</code> trả từ BE ổn định, FE có thể bỏ fallback hardcoded theo role nếu muốn.</li>
+<li>Khi shop approval API hoàn tất, <code>/admin-store/shops</code> có thể bỏ empty state và nối dữ liệu thật.</li>
+</ul>
+  </main>
+</body>
+</html>

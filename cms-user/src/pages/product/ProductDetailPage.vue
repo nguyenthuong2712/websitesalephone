@@ -275,7 +275,23 @@ const deleted = async (id: string) => {
 onMounted(async () => {
   ramList.value = await loadDynamic('RAM')
   screenList.value = await loadDynamic('SCREEN')
-  colorList.value = await loadDynamic('COLOR')
+
+  const rawColors = await loadDynamic('COLOR')
+  const seenViNames = new Set<string>()
+  const processedColors: DynamicOption[] = []
+
+  for (const c of rawColors) {
+    const viName = translateColorName(c.name)
+    if (!seenViNames.has(viName)) {
+      seenViNames.add(viName)
+      processedColors.push({
+        id: c.id,
+        name: viName
+      })
+    }
+  }
+  colorList.value = processedColors
+
   cameraList.value = await loadDynamic('CAMERA')
   originList.value = await loadDynamic('ORIGIN')
   if (productIdRouter.value) {
@@ -337,7 +353,7 @@ const adminColorMap: Record<string, string> = {
   TRANG: '#FFFFFF',
   DO: '#FF0000',
   XANH: '#0000FF',
-  XANH_DUONG: '#0000FF',
+  XANH_DAM: '#000080',
   XANH_LA: '#00A651',
   VANG: '#FFD700',
   CAM: '#FFA500',
@@ -346,6 +362,9 @@ const adminColorMap: Record<string, string> = {
   NAU: '#8B4513',
   XAM: '#808080',
   BAC: '#C0C0C0',
+  VANG_NHAT: '#fef08a',
+  MAU_DEN: '#000000',
+  XANH_DA_TROI: '#38bdf8',
 }
 
 const resolveAdminColorHex = (colorName?: string) => {
@@ -363,6 +382,66 @@ const resolveAdminColorHex = (colorName?: string) => {
 
   return adminColorMap[key] ?? normalized.toLowerCase()
 }
+
+const translateColorName = (name: string): string => {
+  const normalized = name.toUpperCase().trim();
+
+  if (normalized === 'BLACK' || normalized === '#000000' || normalized === 'DEN' || normalized === 'BLACK_COLOR' || normalized === 'TITAN ĐEN') return 'Đen';
+  if (normalized === 'WHITE' || normalized === '#FFFFFF' || normalized === 'TRANG' || normalized === 'TITAN TRẮNG') return 'Trắng';
+  if (normalized === 'RED' || normalized === '#FF0000' || normalized === 'DO') return 'Đỏ';
+  if (normalized === 'GREEN' || normalized === '#00FF00' || normalized === '#00A651' || normalized === 'XANH_LA' || normalized === 'XANH LA') return 'Xanh lá';
+  if (normalized === 'BLUE' || normalized === '#0000FF' || normalized === 'XANH') return 'Xanh dương';
+  if (normalized === 'YELLOW' || normalized === '#FFFF00' || normalized === 'VANG') return 'Vàng';
+  if (normalized === 'ORANGE' || normalized === '#FFA500' || normalized === 'CAM') return 'Cam';
+  if (normalized === 'PINK' || normalized === '#FFC0CB' || normalized === 'HONG') return 'Hồng';
+  if (normalized === 'PURPLE' || normalized === '#800080' || normalized === 'TIM') return 'Tím';
+  if (normalized === 'GREY' || normalized === 'GRAY' || normalized === '#808080' || normalized === 'XAM') return 'Xám';
+  if (normalized === 'SILVER' || normalized === '#C0C0C0' || normalized === 'BAC') return 'Bạc';
+  if (normalized === 'GOLD' || normalized === '#FFD700') return 'Vàng Gold';
+  if (normalized === 'BROWN' || normalized === '#8B4513' || normalized === 'NAU') return 'Nâu';
+  if (normalized === 'CHOCOLATE' || normalized === '#D2691E') return 'Nâu socola';
+  if (normalized === 'NAVY' || normalized === '#000080' || normalized === 'XANH_DAM' || normalized === 'XANH DAM' || normalized === 'TITAN XANH') return 'Xanh dương đậm';
+  if (normalized === 'TEAL' || normalized === '#008080') return 'Xanh lục lam';
+  if (normalized === 'TURQUOISE' || normalized === '#40E0D0') return 'Xanh ngọc';
+  if (normalized === 'VIOLET' || normalized === '#EE82EE') return 'Tím violet';
+  if (normalized === 'CORAL' || normalized === '#FF7F50') return 'Đỏ san hô';
+  if (normalized === 'LIME') return 'Xanh chanh';
+  if (normalized === 'OLIVE') return 'Xanh ô liu';
+  if (normalized === 'MAROON') return 'Đỏ hạt dẻ';
+  if (normalized === 'INDIGO') return 'Xanh chàm';
+  if (normalized === 'BEIGE') return 'Kem';
+  if (normalized === 'TAN') return 'Nâu sáng';
+  if (normalized === 'SALMON') return 'Hồng cam';
+  if (normalized === 'KHAKI') return 'Vàng kaki';
+  if (normalized === 'MINT') return 'Xanh bạc hà';
+  if (normalized === 'PEACH') return 'Màu đào';
+  if (normalized === 'TITAN TỰ NHIÊN') return 'Titan tự nhiên';
+  if (normalized === 'VANG_NHAT' || normalized === 'VÀNG NHẠT') return 'Vàng nhạt';
+  if (normalized === 'MAU_DEN' || normalized === 'MÀU ĐEN') return 'Đen';
+  if (normalized === 'XANH_DA_TROI' || normalized === 'XANH DA TRỜI') return 'Xanh da trời';
+
+  if (normalized.startsWith('#')) {
+    return 'Màu khác';
+  }
+
+  return name;
+};
+
+const getColorEmoji = (viName: string): string => {
+  if (viName.includes('Đen')) return '⬛';
+  if (viName.includes('Trắng')) return '⬜';
+  if (viName.includes('Đỏ') || viName.includes('hạt dẻ')) return '🟥';
+  if (viName.includes('Xanh lá') || viName.includes('bạc hà') || viName.includes('chanh') || viName.includes('ô liu')) return '🟩';
+  if (viName.includes('Xanh dương') || viName.includes('chàm') || viName.includes('lục lam') || viName.includes('ngọc')) return '🟦';
+  if (viName.includes('Vàng') || viName.includes('kaki') || viName.includes('Gold') || viName.includes('tự nhiên')) return '🟨';
+  if (viName.includes('Cam') || viName.includes('san hô') || viName.includes('đào') || viName.includes('cam')) return '🟧';
+  if (viName.includes('Tím') || viName.includes('violet')) return '🟪';
+  if (viName.includes('Nâu') || viName.includes('socola') || viName.includes('sáng')) return '🟫';
+  if (viName.includes('Hồng')) return '🌸';
+  if (viName.includes('Xám') || viName.includes('Bạc')) return '🩶';
+  if (viName.includes('Kem')) return '🍦';
+  return '🎨';
+};
 
 const productVariantColorStyle = (colorName: string) => {
   const colorHex = resolveAdminColorHex(colorName)
@@ -506,7 +585,7 @@ void countUnusedPrice
               </select>
             </div>
             <div class="form-group">
-              <label for="ram" class="form-label"> RAM <span class="required">*</span> </label>
+              <label for="ram" class="form-label"> ROM <span class="required">*</span> </label>
               <select id="color" class="form-select" v-model="productVariantDetail.ramId" required>
                 <option value="">Chọn...</option>
                 <option v-for="c in ramList" :key="getOptionId(c)" :value="getOptionId(c)">
@@ -561,7 +640,7 @@ void countUnusedPrice
             <th>Số Lượng</th>
             <th>Giá Bán</th>
             <th>Màn Hình</th>
-            <th>RAM</th>
+            <th>ROM</th>
             <th>Camera</th>
             <th>Màu Sắc</th>
             <th>Xuất Xứ</th>
@@ -577,9 +656,12 @@ void countUnusedPrice
             <td>{{ item.ramName }}</td>
             <td>{{ item.cameraName }}</td>
             <td>
-              <span class="spec-badge"
-                    :style="{ backgroundColor: item.colorName, color: getContrastColor(item.colorName) }">
-              </span>
+              <div class="table-color-cell" style="display: flex; align-items: center; gap: 8px;">
+                <span class="table-color-circle"
+                      :style="{ backgroundColor: resolveAdminColorHex(item.colorName) }">
+                </span>
+                <span>{{ translateColorName(item.colorName) }}</span>
+              </div>
             </td>
             <td>{{ item.originName }}</td>
 
@@ -811,6 +893,15 @@ void countUnusedPrice
   color: #666;
   font-weight: 600;
   border: 1px solid;
+}
+
+.table-color-circle {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  flex-shrink: 0;
 }
 
 body {

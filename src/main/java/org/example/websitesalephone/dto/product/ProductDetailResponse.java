@@ -28,6 +28,7 @@ public class ProductDetailResponse {
     private List<DynamicResponse> storages;
     private List<DynamicResponse> operators;
     private List<DynamicResponse> rams;
+    private List<ProductVariantResponse> variants;
     private List<ProductImageResponse> responseList;
 
     public static ProductDetailResponse fromEntity(Product product, List<ProductVariant> productVariants, List<ProductImage> productImages) {
@@ -43,7 +44,7 @@ public class ProductDetailResponse {
                 .id(product.getId())
                 .productName(product.getName())
                 .description(product.getDescription())
-                .price(product.getPrice() != null ? product.getPrice() : variant.getPrice())
+                .price(product.getPrice() != null && product.getPrice().compareTo(BigDecimal.ZERO) > 0 ? product.getPrice() : variant.getPrice())
                 .responseList(responseList.isEmpty() ? null : responseList)
                 .colors(removeDuplicate(productVariants.stream()
                         .map(v -> new DynamicResponse(v.getColor().getId(), v.getColor().getName()))
@@ -75,6 +76,7 @@ public class ProductDetailResponse {
                 .images(removeDuplicate(productImages.stream()
                         .map(v -> new DynamicResponse(v.getId(), v.getUrl()))
                         .toList()))
+                .variants(productVariants.stream().map(ProductVariantResponse::fromEntity).toList())
                 .build();
     }
 

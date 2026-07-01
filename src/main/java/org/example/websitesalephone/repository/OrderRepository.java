@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, String> {
+    Optional<Order> findByPayosOrderCode(Long payosOrderCode);
+
     Page<Order> findAll(Specification<Order> spec, Pageable pageable);
     List<Order> findAll(Specification<Order> spec);
     int countByStatus(String status);
@@ -24,9 +26,18 @@ public interface OrderRepository extends JpaRepository<Order, String> {
     int countByStatusAndStaff_Id(String status, String staffId);
 
     @Query(value = """
-        SELECT COALESCE(SUM(o.total_amount), 0)s
+        SELECT COALESCE(SUM(o.total_amount), 0)
         FROM orders o
         WHERE o.status = 'COMPLETED'
     """, nativeQuery = true)
     BigDecimal getRevenueByStatus();
+
+    @Query(value = """
+        SELECT COALESCE(SUM(o.total_amount), 0)
+        FROM orders o
+        WHERE o.status = 'COMPLETED'
+          AND o.created_at >= :startDate
+          AND o.created_at <= :endDate
+    """, nativeQuery = true)
+    BigDecimal getRevenueByStatusAndDateRange(@Param("startDate") java.time.OffsetDateTime startDate, @Param("endDate") java.time.OffsetDateTime endDate);
 }

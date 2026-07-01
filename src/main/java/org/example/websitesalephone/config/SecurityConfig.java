@@ -32,7 +32,8 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/payment/vnpay-return").permitAll()
+                        .requestMatchers("/api/payment/payos-webhook").permitAll()
+                        .requestMatchers("/api/payment/payos-return").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/chat/**").authenticated()
                         .requestMatchers(

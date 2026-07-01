@@ -36,14 +36,23 @@ class OrderService {
         return api.post(`${this.ROOT_API}count-order-staff`, orderCountRequest)
     }
 
-    public getDashboard(searchText: string): Promise<AxiosResponse> {
-        return api.get(`${this.ROOT_API}dashboard/${searchText}`)
+    public getDashboard(searchText: string, range: string = 'ALL'): Promise<AxiosResponse> {
+        return api.get(`${this.ROOT_API}dashboard/${searchText}?range=${range}`)
     }
 
     public downloadPdf(id: string): Promise<AxiosResponse<Blob>> {
         return api.get(`${this.ROOT_API}pdf/generate/${id}`, {
             responseType: 'blob',
         })
+    }
+
+    public buyNow(buyNowRequest: {
+        variantId: string
+        quantity: number
+        addressLine: string
+        paymentMethod: string
+    }): Promise<AxiosResponse> {
+        return api.post(`${this.ROOT_API}buy-now`, buyNowRequest)
     }
 }
 

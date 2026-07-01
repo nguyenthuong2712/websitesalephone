@@ -1,6 +1,7 @@
 package org.example.websitesalephone.controller;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.websitesalephone.comon.CommonResponse;
 import org.example.websitesalephone.service.payment.PaymentService;
 import org.springframework.web.bind.annotation.*;
@@ -12,17 +13,20 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/payment")
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentController {
 
     private final PaymentService paymentService;
 
     @PostMapping("/create")
     public CommonResponse createPayment(@RequestParam String orderId, HttpServletRequest request) {
+        log.info("Request to create PayOS Payment Link for orderId: {}", orderId);
         return paymentService.createPaymentUrl(orderId, request);
     }
 
-    @GetMapping("/vnpay-return")
-    public void vnpayReturn(@RequestParam Map<String, String> queryParams, HttpServletResponse response) throws IOException {
+    @GetMapping("/payos-return")
+    public void payosReturn(@RequestParam Map<String, String> queryParams, HttpServletResponse response) throws IOException {
+        log.info("Received PayOS Return URL with params: {}", queryParams);
         CommonResponse result = paymentService.handleCallback(queryParams);
 
         boolean isSuccess = false;
@@ -36,25 +40,30 @@ public class PaymentController {
 
         String frontendUrl;
         if (isSuccess) {
-            frontendUrl = "http://localhost:5173/customer/payment-success?vnp_ResponseCode=" + queryParams.get("vnp_ResponseCode")
-                    + "&vnp_TransactionNo=" + queryParams.get("vnp_TransactionNo")
-                    + "&vnp_Amount=" + queryParams.get("vnp_Amount")
-                    + "&vnp_OrderInfo=" + URLEncoderForFrontend(queryParams.get("vnp_OrderInfo"))
+            frontendUrl = "http://localhost:5173/customer/payment-success?status=PAID"
+                    + "&orderCode=" + queryParams.get("orderCode")
+                    + "&paymentLinkId=" + queryParams.get("id")
                     + "&orderId=" + orderId;
         } else {
-            frontendUrl = "http://localhost:5173/customer/payment-failed?vnp_ResponseCode=" + queryParams.get("vnp_ResponseCode")
+            frontendUrl = "http://localhost:5173/customer/payment-failed?status=CANCELLED"
+                    + "&orderCode=" + queryParams.get("orderCode")
                     + "&orderId=" + orderId;
         }
 
         response.sendRedirect(frontendUrl);
     }
 
-    private String URLEncoderForFrontend(String value) {
-        if (value == null) return "";
+    @PostMapping("/payos-webhook")
+    public CommonResponse payosWebhook(@RequestBody String rawBody) {
+        log.info("Received PayOS Webhook notification payload");
         try {
-            return java.net.URLEncoder.encode(value, java.nio.charset.StandardCharsets.UTF_8.toString());
+            return paymentService.handleWebhook(rawBody);
         } catch (Exception e) {
-            return value;
+            log.error("Error processing PayOS Webhook: ", e);
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_INTERNAL_ERROR)
+                    .message("Failed to process webhook: " + e.getMessage())
+                    .build();
         }
     }
 }

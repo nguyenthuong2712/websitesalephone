@@ -8,12 +8,26 @@ const totalCustomer = ref(0);
 const totalRevenue = ref(0);
 const totalCancelled = ref(0);
 
+const selectedRange = ref("ALL");
+
 async function loadDashboard() {
   totalOrder.value = (await orderService.getDashboard("ORDER")).data.data;
   totalProduct.value = (await orderService.getDashboard("PRODUCT")).data.data;
   totalCustomer.value = (await orderService.getDashboard("CUSTOMER")).data.data;
-  totalRevenue.value = (await orderService.getDashboard("REVENUE")).data.data;
   totalCancelled.value = (await orderService.getDashboard("CANCELLED")).data.data;
+  await loadRevenue();
+}
+
+async function loadRevenue() {
+  try {
+    totalRevenue.value = (await orderService.getDashboard("REVENUE", selectedRange.value)).data.data;
+  } catch (err) {
+    console.error("Failed to load revenue", err);
+  }
+}
+
+async function onRangeChange() {
+  await loadRevenue();
 }
 
 onMounted(() => {
@@ -25,6 +39,20 @@ onMounted(() => {
 <template>
   <div class="admin-wrapper">
     <main class="main-content">
+      <!-- Filter controls -->
+      <div class="filter-header">
+        <h2>📊 Báo cáo Thống kê Doanh Thu</h2>
+        <div class="filter-controls">
+          <label for="range-select" class="filter-label">Lọc doanh thu theo:</label>
+          <select id="range-select" v-model="selectedRange" @change="onRangeChange" class="range-select">
+            <option value="ALL">Tất cả thời gian</option>
+            <option value="TODAY">Hôm nay</option>
+            <option value="MONTH">Tháng này</option>
+            <option value="YEAR">Năm nay</option>
+          </select>
+        </div>
+      </div>
+
       <section class="stats-grid">
 
         <!-- Tổng Đơn Hàng -->
@@ -99,6 +127,56 @@ body {
   flex: 1;
   padding: 40px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.filter-header {
+  background: white;
+  padding: 20px 30px;
+  border-radius: 15px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.filter-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-label {
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.range-select {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e0;
+  outline: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #2d3748;
+  background-color: #f7fafc;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.range-select:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
 }
 
 /* Stats Cards */

@@ -37,6 +37,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String jwt;
         final String userEmail;
 
+        // Cho phép các yêu cầu WebSocket SockJS bypass qua bộ lọc JWT mà không trả về 401
+        String requestURI = request.getRequestURI();
+        if (requestURI != null && requestURI.contains("/ws")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         if (authHeader == null || !authHeader.startsWith(TOKEN_PREFIX)) {
             filterChain.doFilter(request, response);
             return;

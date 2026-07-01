@@ -1,11 +1,15 @@
 import { defineStore } from 'pinia'
 import api from './api/api'
 
-type UserProfile = Record<string, unknown> | null
+export interface UserProfileDetails {
+    loginId?: string;
+    email?: string;
+    [key: string]: any;
+}
 
 export const useUserStore = defineStore('userStore', {
     state: () => ({
-        user: null as UserProfile,
+        user: null as UserProfileDetails | null,
         ROOT_API: `${import.meta.env.VITE_ROOT_API}/api/user/`,
     }),
 

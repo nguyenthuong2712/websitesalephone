@@ -66,6 +66,33 @@ const fetchHistory = async () => {
   }
 };
 
+const getPaymentMethodName = (method?: string): string => {
+  if (!method) return "Chưa xác định";
+  const normalized = method.trim().toUpperCase();
+  if (normalized === 'COD' || normalized.includes('KHI NHẬN HÀNG')) return 'Tiền mặt (COD)';
+  if (normalized === 'PAYOS') return 'PayOS';
+  if (normalized === 'VNPAY') return 'Cổng thanh toán VNPAY';
+  if (normalized === 'BANK_TRANSFER') return 'Chuyển khoản';
+  return method;
+};
+
+const getPaymentTypeName = (method?: string): string => {
+  if (!method) return "Chưa xác định";
+  const normalized = method.trim().toUpperCase();
+  if (normalized === 'COD' || normalized.includes('KHI NHẬN HÀNG')) return 'Thanh toán khi nhận hàng';
+  return 'Thanh toán trực tuyến';
+};
+
+const getPaymentStatusName = (status?: string): string => {
+  if (!status) return "Chưa thanh toán";
+  const normalized = status.trim().toUpperCase();
+  if (normalized === 'PAID' || normalized === 'SUCCESS') return 'Đã thanh toán';
+  if (normalized === 'UNPAID') return 'Chưa thanh toán';
+  if (normalized === 'PENDING') return 'Chờ xử lý';
+  if (normalized === 'CANCELLED') return 'Giao dịch thất bại / Đã hủy';
+  return status;
+};
+
 const updateOrderStatus = async (newStatus: string) => {
   if (!orderDetail.value) return;
 
@@ -380,17 +407,20 @@ onMounted(() => {
         </div>
       </div>
       <div class="summary-section">
-        <h3>📍 Địa Chỉ Giao Hàng</h3>
+        <h3>📍 Địa chỉ Giao Hàng</h3>
         <div class="customer-detail">
           {{ orderDetail?.address}}
         </div>
       </div>
       <div class="summary-section">
         <h3>💳 Thanh Toán</h3>
-        <div class="info-row"><span class="info-label">Phương thức:</span> <span class="info-value">{{ orderDetail?.methodTransaction }}</span>
+        <div class="info-row"><span class="info-label">Phương thức:</span> <span class="info-value">{{ getPaymentMethodName(orderDetail?.methodTransaction) }}</span>
+        </div>
+        <div class="info-row"><span class="info-label">Hình thức:</span> <span class="info-value">{{ getPaymentTypeName(orderDetail?.methodTransaction) }}</span>
         </div>
         <div class="info-row"><span class="info-label">Trạng thái:</span> <span class="info-value"
-                                                                                style="color: #43e97b;">✓ Đã thanh toán</span>
+                                                                                :style="{ color: orderDetail?.statusTransaction === 'PAID' ? '#43e97b' : '#f43f5e', fontWeight: 'bold' }">
+                                                                                {{ getPaymentStatusName(orderDetail?.statusTransaction) }}</span>
         </div>
       </div>
       <div class="total-section">

@@ -6,7 +6,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@SpringBootApplication
+import org.springframework.scheduling.annotation.EnableAsync;
+
+@SpringBootApplication(exclude = {
+    org.springframework.cloud.function.context.config.ContextFunctionCatalogAutoConfiguration.class
+})
+@EnableAsync
 public class WebsiteSalePhoneApplication {
 
     public static void main(String[] args) {

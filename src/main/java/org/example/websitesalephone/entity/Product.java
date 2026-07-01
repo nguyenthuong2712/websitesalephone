@@ -24,7 +24,7 @@ public class Product extends BaseEntity{
     @Column(name = "name", columnDefinition = "NVARCHAR(255) COLLATE Vietnamese_CI_AS")
     private String name;
 
-    @Column(name = "description", columnDefinition = "NVARCHAR(255) COLLATE Vietnamese_CI_AS")
+    @Column(name = "description", columnDefinition = "NVARCHAR(MAX) COLLATE Vietnamese_CI_AS")
     private String description;
 
     @Enumerated(EnumType.STRING)
@@ -32,6 +32,10 @@ public class Product extends BaseEntity{
     private ProductStatus status;
 
     private BigDecimal price;
+
+    @ManyToOne
+    @JoinColumn(name = "shop_registration_id")
+    private ShopRegistration shopRegistration;
 
     @OneToMany(mappedBy = "product")
     private List<ProductVariant> variants;

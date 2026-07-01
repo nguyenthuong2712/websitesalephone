@@ -7,4 +7,5 @@ import java.util.Map;
 public interface PaymentService {
     CommonResponse createPaymentUrl(String orderId, HttpServletRequest request);
     CommonResponse handleCallback(Map<String, String> queryParams);
+    CommonResponse handleWebhook(String webhookBody);
 }

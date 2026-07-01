@@ -4,15 +4,30 @@ export interface IDynamicResponse {
     name: string;
 }
 
-export interface IProductImageResponse {
-    id: string;
-    url: string;
-    active?: boolean;
+export interface IProductVariantResponse {
+    idProduct: string;
+    productName?: string;
+    description?: string;
+    quantity: number;
+    colorName?: string;
+    originName?: string;
+    screenName?: string;
+    cameraName?: string;
+    ramName?: string;
+    price: number;
+    ramId?: string;
+    colorId?: string;
+    originId?: string;
+    screenId?: string;
+    cameraId?: string;
 }
 
 export interface IProductDetailResponse {
     productName: string;
     description: string;
+    location: string;
+    storage: string;
+    deviceMake: string;
     quantity: number;
     price: number;
     colors: IDynamicResponse[];
@@ -25,13 +40,16 @@ export interface IProductDetailResponse {
     storages: IDynamicResponse[];
     operators: IDynamicResponse[];
     rams: IDynamicResponse[];
-    responseList?: IProductImageResponse[];
+    variants?: IProductVariantResponse[];
 }
 
 // Class để khởi tạo và xử lý nếu cần
 export class ProductDetailResponse implements IProductDetailResponse {
     productName: string;
     description: string;
+    location: string;
+    storage: string;
+    deviceMake: string;
     quantity: number;
     price: number;
     colors: IDynamicResponse[];
@@ -44,11 +62,14 @@ export class ProductDetailResponse implements IProductDetailResponse {
     storages: IDynamicResponse[];
     operators: IDynamicResponse[];
     rams: IDynamicResponse[];
-    responseList?: IProductImageResponse[];
+    variants?: IProductVariantResponse[];
 
     constructor(data: Partial<IProductDetailResponse>) {
         this.productName = data.productName || "";
         this.description = data.description || "";
+        this.location = data.location || "";
+        this.storage = data.storage || "";
+        this.deviceMake = data.deviceMake || "";
         this.quantity = data.quantity || 0;
         this.price = data.price || 0;
         this.colors = data.colors || [];
@@ -61,7 +82,7 @@ export class ProductDetailResponse implements IProductDetailResponse {
         this.storages = data.storages || [];
         this.operators = data.operators || [];
         this.rams = data.rams || [];
-        this.responseList = data.responseList || [];
+        this.variants = data.variants || [];
     }
 
     // Optional: method map từ API JSON sang class
@@ -69,6 +90,9 @@ export class ProductDetailResponse implements IProductDetailResponse {
         return new ProductDetailResponse({
             productName: data.productName,
             description: data.description,
+            location: data.location,
+            storage: data.storage,
+            deviceMake: data.deviceMake,
             quantity: data.quantity,
             price: data.price,
             colors: data.colors || [],
@@ -81,7 +105,7 @@ export class ProductDetailResponse implements IProductDetailResponse {
             storages: data.storages || [],
             operators: data.operators || [],
             rams: data.rams || [],
-            responseList: data.responseList || [],
+            variants: data.variants || [],
         });
     }
 }

@@ -13,6 +13,11 @@ import org.example.websitesalephone.repository.ChatRoomRepository;
 import org.example.websitesalephone.repository.UserRepository;
 import org.example.websitesalephone.service.chat.ChatService;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,12 +29,20 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class ChatServiceImpl implements ChatService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+
+    @Value("${spring.ai.openai.api-key:}")
+    private String apiKey;
+
+    @Autowired
+    @Lazy
+    private ChatClient.Builder chatClientBuilder;
 
     @Override
     @Transactional
@@ -82,11 +95,62 @@ public class ChatServiceImpl implements ChatService {
         // 2. Notify all admins of a new message or activity
         messagingTemplate.convertAndSend("/topic/chat/admins", dto);
 
+        // Trigger AI Bot reaction asynchronously if the sender is the CUSTOMER
+        if ("CUSTOMER".equalsIgnoreCase(senderRole)) {
+            java.util.concurrent.CompletableFuture.runAsync(() -> triggerAiResponse(roomId, content));
+        }
+
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
                 .data(dto)
                 .message("Message sent successfully")
                 .build();
+    }
+
+    protected void triggerAiResponse(String roomId, String customerContent) {
+        try {
+            // Wait slightly to make it feel natural
+            Thread.sleep(1500);
+
+            String prompt = "Bạn là trợ lý AI (tư vấn viên) thông minh và thân thiện của cửa hàng điện thoại di động 'Website Sale Phone'. " +
+                    "Hãy trả lời câu hỏi sau của khách hàng một cách lịch sự, ngắn gọn và cung cấp thông tin hữu ích nhất. " +
+                    "Câu hỏi của khách hàng: \"" + customerContent + "\"";
+
+            String aiResponseContent = "";
+            if (apiKey == null || apiKey.trim().isEmpty() || "demo-key".equalsIgnoreCase(apiKey.trim())) {
+                // Return fallback directly without calling OpenAI API to avoid 401 warnings & retries
+                aiResponseContent = "Cảm ơn bạn đã liên hệ với Website Sale Phone! Hiện tại hệ thống tư vấn AI đang bận, quản trị viên sẽ liên hệ lại với bạn trong giây lát.";
+            } else {
+                try {
+                    aiResponseContent = chatClientBuilder.build()
+                            .prompt()
+                            .user(prompt)
+                            .call()
+                            .content();
+                } catch (Exception e) {
+                    // Fallback if API key is not configured or fails
+                    aiResponseContent = "Cảm ơn bạn đã liên hệ với Website Sale Phone! Hiện tại hệ thống tư vấn AI đang bận, quản trị viên sẽ liên hệ lại với bạn trong giây lát.";
+                }
+            }
+
+            ChatRoom room = chatRoomRepository.findById(roomId).orElse(null);
+            if (room != null) {
+                ChatMessage message = new ChatMessage();
+                message.setId(UUID.randomUUID().toString());
+                message.setRoom(room);
+                message.setSenderId("AI_BOT");
+                message.setSenderRole("STAFF");
+                message.setContent(aiResponseContent);
+                message.setStatus(MessageStatus.SENT);
+                chatMessageRepository.saveAndFlush(message);
+
+                ChatMessageDto dto = convertToMessageDto(message);
+                messagingTemplate.convertAndSend("/topic/chat/room/" + roomId, dto);
+                messagingTemplate.convertAndSend("/topic/chat/admins", dto);
+            }
+        } catch (Exception ex) {
+            log.error("Error in AI trigger response", ex);
+        }
     }
 
     @Override

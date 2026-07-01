@@ -4,132 +4,155 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This repository is a phone e-commerce application split into two parts:
-- A Spring Boot 3 / Java 21 backend in the repository root.
-- A Vue 3 + TypeScript + Vite frontend in `cms-user/`.
+This repository is a phone e-commerce application with:
+- a Spring Boot 3 / Java 21 backend in the repository root
+- a Vue 3 + TypeScript + Vite frontend in `cms-user/`
+- a SQL Server database, typically started with Docker Compose and restored from `manager_sale_phone.bak`
 
-The frontend talks to the backend over HTTP using `VITE_ROOT_API` and appends `/api` in the shared Axios client.
+The frontend uses `VITE_ROOT_API` and the shared Axios client appends `/api`, so frontend requests target `${VITE_ROOT_API}/api`.
 
-## Common Commands
+## Commands
+
+### Database
+- Start SQL Server: `docker compose up -d`
+- Stop SQL Server: `docker compose down`
 
 ### Backend
-- Install/build and run tests: `./mvnw test`
-- Run the Spring Boot app: `./mvnw spring-boot:run`
-- Build the backend jar: `./mvnw package`
-- Run a single backend test class: `./mvnw -Dtest=WebsiteSalePhoneApplicationTests test`
-- Run a single backend test method: `./mvnw -Dtest=WebsiteSalePhoneApplicationTests#contextLoads test`
+- Run tests: `./mvnw test`
+- Run one test class: `./mvnw -Dtest=WebsiteSalePhoneApplicationTests test`
+- Run one test method: `./mvnw -Dtest=WebsiteSalePhoneApplicationTests#contextLoads test`
+- Run the app: `./mvnw spring-boot:run`
+- Build the jar: `./mvnw package`
 
 ### Frontend
 - Install dependencies: `cd cms-user && npm install`
-- Start the Vite dev server: `cd cms-user && npm run dev`
-- Build the frontend: `cd cms-user && npm run build`
+- Start the dev server: `cd cms-user && npm run dev`
+- Build production assets: `cd cms-user && npm run build`
 - Preview the production build: `cd cms-user && npm run preview`
 
-## Runtime Configuration
+`cms-user/package.json` defines `dev`, `build`, and `preview` only. There is no frontend lint or test script.
 
-- Backend settings live in `src/main/resources/application.properties`.
-- The backend expects SQL Server on `localhost:1433` with database `manager_sale_phone`.
-- JPA runs with `spring.jpa.hibernate.ddl-auto=update`, so schema changes are applied at startup.
-- The frontend environment file is `cms-user/.env`; local development uses `VITE_ROOT_API=http://localhost:8080`.
+### Convenience scripts
+- `runbe.sh` runs `./mvnw spring-boot:run`
+- `rundev.sh` is stale and points at a non-existent Next.js app. Do not use it for this repository.
 
-## Architecture
+## Runtime configuration
 
-### Backend Request Flow
+- Backend configuration lives in `src/main/resources/application.properties`.
+- The backend datasource is controlled by environment variables with defaults: `${DB_HOST:localhost}`, `${DB_PORT:1433}`, `${DB_NAME:manager_sale_phone}`, `${DB_USERNAME:sa}`, `${DB_PASSWORD:123456}`.
+- Docker Compose reads `.env` values such as `MSSQL_SA_PASSWORD`, `DB_NAME`, `DB_PORT`, and `DB_CONTAINER_NAME`. Copy `.env.example` to `.env` when setting up locally.
+- Important mismatch: the backend defaults `DB_PASSWORD` to `123456`, while `docker-compose.yml` defaults `MSSQL_SA_PASSWORD` to `YourStrong!Passw0rd`. Set them consistently or the backend will fail to connect to the Dockerized database.
+- `docker/init-db.sh` waits for SQL Server, restores `manager_sale_phone.bak`, and skips restore if the database already exists.
+- JPA runs with `spring.jpa.hibernate.ddl-auto=update`, `show-sql=true`, and `open-in-view=false`.
+- The frontend local env file is `cms-user/.env`; local development uses `VITE_ROOT_API=http://localhost:8080`.
 
-Most backend features follow this path:
-- `controller/*` exposes REST endpoints under `/api/...`.
-- Controllers delegate to `service/*` interfaces and `service/*/impl/*` implementations for business logic.
-- Services read and write JPA entities through Spring Data repositories in `repository/*`.
-- DTOs in `dto/*` shape request and response payloads.
-- API responses are usually wrapped in `comon/CommonResponse` and paginated results use `comon/PageResponse`.
+## Project architecture
 
-### Security Model
+### Backend structure
+
+The backend follows a conventional Spring layered architecture:
+- `controller/*` exposes REST endpoints under `/api/...`
+- `service/*` and `service/*/impl/*` contain business logic
+- `repository/*` contains Spring Data JPA repositories
+- `entity/*` contains persistence models
+- `dto/*` contains request/response payload models
+- responses are commonly wrapped in `comon/CommonResponse` and paginated data in `comon/PageResponse`
+
+Most filtered list pages follow the same paging pattern:
+- search DTOs align with `comon/PagingRequest`
+- `utils/Utils.getPaging(...)` builds the `PageRequest`
+- more complex filters use JPA `Specification`s, especially `spe/OrderSpecification.java` and `spe/UserSpecification.java`
+- product filtering is an exception: its specification logic is built inline in `service/product/impl/ProductServiceImpl.java`
+
+### Authentication and authorization
 
 Authentication is JWT-based:
-- `controller/AuthController.java` exposes login, logout, register, forgot-password, and reset-password flows.
-- `auth/JwtService.java` signs and validates RSA JWTs.
-- `auth/JwtAuthenticationFilter.java` reads the `Authorization: Bearer ...` header and populates the Spring Security context.
-- `config/ApplicationConfig.java` wires `UserDetailsService`, password encoding, and the authentication provider.
-- `config/SecurityConfig.java` installs the JWT filter. Notice that some routes are public (e.g. `/api/auth/**`) while other endpoints (e.g. `/api/chat/**`, `/api/user/**`, `/api/order/**`, `/api/product/**`) require specific roles or authentication.
+- `controller/AuthController.java` handles login, logout, register, forgot-password, and reset-password flows
+- `auth/JwtService.java` signs and validates RSA JWTs
+- `auth/JwtAuthenticationFilter.java` reads `Authorization: Bearer ...` and populates the Spring Security context
+- `config/ApplicationConfig.java` wires the `UserDetailsService`, password encoder, and authentication provider
+- `config/SecurityConfig.java` installs the JWT filter and defines which routes are public vs role-restricted
 
-### WebSocket Chat System
+On the frontend:
+- `src/api/api.ts` injects the token into requests and clears auth state on `401`
+- `src/service/AuthService.ts` stores auth data in `localStorage`, including `Authorization` and `USER-ROLE`
+- `cms-user/src/router.ts` uses `meta.requiresAuth` and `meta.roles` to gate routes and redirect to `/login` or `/403`
 
-The app implements real-time messaging using STOMP:
-- `config/WebSocketConfig.java` registers `/ws` as the endpoint and configures `/topic` as the broker prefix.
-- `controller/ChatController.java` maps websocket messages under `/app/chat.sendMessage/{roomId}`.
-- WebSockets use `/topic/chat/room/{roomId}` for direct user room updates and `/topic/chat/admins` to notify admins of activity.
+Pinia exists, but client auth is not centered in Pinia; it is primarily stored in `localStorage`.
 
-### Domain Model
-
-The data model is centered around a catalog/order workflow:
-- `entity/Product` holds the base product record.
-- `entity/ProductVariant` stores sellable variants and inventory quantities.
-- Dynamic attribute entities such as `Color`, `Ram`, `Screen`, `Camera`, `Origin`, `Battery`, `Storage`, `Cpu`, and `OperatingSystem` act as lookup tables used when building variants.
-- `entity/Cart` and `entity/CartItem` support the active shopping cart.
-- `entity/Order`, `entity/OrderItem`, and `entity/OrderStatusHistory` track checkout and fulfillment progress.
-- `entity/User`, `entity/Role`, `entity/Address`, `entity/PasswordResetToken`, and `entity/ExpiredToken` support identity, authorization, and token lifecycle.
-
-### Search and Paging Conventions
-
-Search screens use a shared pattern across modules:
-- Search DTOs extend or align with `comon/PagingRequest` semantics (`page`, `size`, `sortBy`, `sortDesc`).
-- `utils/Utils.getPaging(...)` converts those DTOs into Spring `PageRequest`.
-- More complex filters are implemented as JPA `Specification`s, notably in `spe/OrderSpecification.java` and `spe/UserSpecification.java`.
-- Product search currently builds the `Specification` inline in `service/product/impl/ProductServiceImpl.java` rather than in a dedicated specification class.
-
-### Product and Dynamic Attribute Management
-
-Product management spans multiple files:
-- `controller/ProductController.java` exposes product CRUD, variant CRUD, image management, quantity checks, and "new product" listing.
-- `service/product/impl/ProductServiceImpl.java` is the main orchestration layer for product creation, variant updates, search, and image metadata.
-- `controller/DynamicController.java` with `service/dyanmic/impl/DynamicAttributeProductServiceImpl.java` handles lookup-table style CRUD for attributes like color, RAM, screen, camera, origin, and similar values used by product variants.
-
-### Cart and Checkout Flow
-
-The purchase flow is split between cart and order services:
-- `controller/CartController.java` exposes add/update/items/checkout endpoints.
-- `service/cart/impl/CartServiceImpl.java` resolves the logged-in user from the security context, mutates cart items, validates stock, creates the order, decrements variant inventory, marks cart items checked out, and inserts the first `OrderStatusHistory` row.
-- `service/order/impl/OrderServiceImpl.java` handles back-office order search, detail views, status transitions, counts, and dashboard summary metrics.
-
-### PDF and Image Handling
-
-Two features depend on filesystem/resource assumptions that are easy to miss:
-- `service/pdf/impl/PDFGeneratorServiceImpl.java` renders order invoices with iText and expects the font resource path `fonts/Roboto-Regular.ttf`.
-- `service/dyanmic/impl/ProductImageServiceImpl.java` writes uploaded images to the hard-coded Windows directory `D:\FE_DuAnTotNghiep\assets\ảnh giày`, so image upload behavior is environment-specific.
-
-## Frontend Structure
-
-### App Shell and Routing
+### Frontend structure
 
 The Vue app is route-driven:
-- `src/App.vue` is only a `router-view` shell.
-- `src/router.ts` defines two main application areas: customer routes under `/customer/...` and admin routes under `/admin/...`.
-- Admin pages are wrapped by `src/layout/AdminLayout.vue`.
-- Route guards use `meta.requiresAuth` plus `meta.roles` to redirect unauthenticated users to `/login` and unauthorized users to `/403`.
+- `src/App.vue` is a `router-view` shell
+- `src/router.ts` splits the app into customer routes under `/customer/...` and admin routes under `/admin/...`
+- admin pages are wrapped with `src/layout/AdminLayout.vue`
+- `src/service/*.ts` files are thin API wrappers around backend endpoints
+- `src/models/*` mirrors backend DTO shapes, so backend contract changes usually need matching frontend model updates
 
-### Frontend API Layer
+### Core business areas
 
-The frontend uses a shared Axios instance:
-- `src/api/api.ts` sets the base URL to `${VITE_ROOT_API}/api`.
-- A request interceptor injects the bearer token from `AuthService`.
-- A response interceptor clears auth state and redirects to `/login` on `401`.
-- Feature services in `src/service/*.ts` are thin wrappers around backend endpoints.
+The main domain is a catalog and order workflow:
+- `entity/Product` is the base product record
+- `entity/ProductVariant` is the sellable SKU with quantity/inventory
+- lookup-table style entities such as `Color`, `Ram`, `Screen`, `Camera`, `Origin`, `Battery`, `Storage`, `Cpu`, and `OperatingSystem` define dynamic product attributes
+- `entity/Cart` and `entity/CartItem` support the active cart
+- `entity/Order`, `entity/OrderItem`, and `entity/OrderStatusHistory` track checkout and fulfillment
+- `entity/User`, `entity/Role`, `entity/Address`, `entity/PasswordResetToken`, and `entity/ExpiredToken` cover identity and token lifecycle
 
-### Frontend Auth and State
+Product management spans multiple layers:
+- `controller/ProductController.java` exposes product CRUD, variant CRUD, image management, quantity checks, and the “new product” listing
+- `service/product/impl/ProductServiceImpl.java` is the main orchestration layer for create/update/search flows
+- `controller/DynamicController.java` with `service/dyanmic/impl/DynamicAttributeProductServiceImpl.java` manages lookup-table style dynamic attributes
 
-Client-side auth state is stored in `localStorage` rather than Pinia:
-- `src/service/AuthService.ts` stores the JWT under `Authorization` and the role under `USER-ROLE`.
-- Route access depends on `authService.isAuthenticated()` and `authService.getRole()` from `src/router.ts`.
-- Pinia is present, but currently used for focused state such as `src/userStore.ts` for the logged-in user profile.
+Cart and order processing is split between two services:
+- `controller/CartController.java` and `service/cart/impl/CartServiceImpl.java` handle cart mutation, stock validation, checkout, inventory decrement, cart item checkout state, and initial order status history creation
+- `controller/OrderController.java` and `service/order/impl/OrderServiceImpl.java` handle order search, detail views, status transitions, counts, and dashboard summaries
 
-### Frontend Page Organization
+### Shop registration flow
 
-The page structure follows the backend domains:
-- `src/pages/home/*` contains customer storefront, cart, order history, and profile pages.
-- `src/pages/product/*`, `src/pages/order/*`, and `src/pages/user/*` support admin/staff management flows.
-- `src/models/*` mirrors backend request/response DTO shapes, so backend contract changes usually require corresponding frontend model and service updates.
+Shop registration is a cross-cutting feature:
+- `controller/ShopController.java` delegates to `service/shop/impl/ShopServiceImpl.java`
+- shop data is stored in `ShopRegistration` and `ShopPaymentMethod`
+- uploaded shop assets are written to `uploads/shop` relative to the backend run directory
+- a successful registration updates the user role in the database to `STAFF`
+- `cms-user/src/pages/home/ShopRegisterPage.vue` saves the client role as `PARTNER`, but this page is not wired into `cms-user/src/router.ts`
 
-## Testing Status
+### Payment flow
 
-- Backend test coverage is minimal; the only committed test is `src/test/java/org/example/websitesalephone/WebsiteSalePhoneApplicationTests.java`.
-- The frontend `package.json` does not define lint or test scripts.
+VNPAY integration is handled by:
+- `config/VnPayConfig.java` for VNPAY properties
+- `controller/PaymentController.java` for payment creation and VNPAY return handling
+
+The VNPAY return handler redirects back to Vue routes on `http://localhost:5173`, so payment callback behavior currently assumes that frontend port.
+
+### Realtime chat
+
+Realtime messaging uses STOMP over WebSocket:
+- `config/WebSocketConfig.java` registers `/ws` and the `/topic` broker prefix
+- `controller/ChatController.java` maps messages under `/app/chat.sendMessage/{roomId}`
+- room updates publish to `/topic/chat/room/{roomId}` and admin notifications to `/topic/chat/admins`
+- the frontend chat code lives in `cms-user/src/components/ChatWidget.vue`, `cms-user/src/pages/chat/AdminChat.vue`, and `cms-user/src/service/ChatService.ts`
+
+### Startup seeders
+
+`config/init/*` contains `CommandLineRunner` seeders that populate lookup data if missing. Notable examples:
+- `RoleDataInitializer.java` inserts all `RoleEnums`
+- `ColorDataInitializer.java` and `OriginDataInitializer.java` seed dynamic attribute values
+
+## Filesystem-dependent behavior
+
+Two backend features depend on local filesystem assumptions:
+- `service/dyanmic/impl/ProductImageServiceImpl.java` writes product images to the hard-coded Windows path `D:\FE_DuAnTotNghiep\assets\ảnh giày`
+- `service/pdf/impl/PDFGeneratorServiceImpl.java` generates invoices and expects the font resource `fonts/Roboto-Regular.ttf`
+
+## Reference docs and repo-specific notes
+
+- `docs/backend-api-spec.md` is the generated REST API reference for backend endpoints. `.html` and `.pdf` copies also exist.
+- `docs/auto-product-approval-image-hashing.md` documents the image-hashing / auto product-approval design.
+- `AGENTS.md` contains project-local LLM working rules: think before coding, prefer the simplest solution, and keep edits surgical.
+- The root `README.md` and `cms-user/README.md` do not contain meaningful project-specific setup guidance beyond template text.
+
+## Testing status
+
+- Backend automated coverage is minimal; the committed test suite is essentially `src/test/java/org/example/websitesalephone/WebsiteSalePhoneApplicationTests.java`.
+- The frontend has no committed automated test or lint command.

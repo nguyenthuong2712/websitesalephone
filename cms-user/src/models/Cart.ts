@@ -1,15 +1,16 @@
 // src/models/Cart.ts
 
 export interface ProductInCart {
-    idCartItem: string
-    productId: string
-    productName: string
-    quantity: number
-    ram: string
-    color: string
-    origin: string
-    image: string
-    price: number
+    idCartItem: string,
+    productId: string;
+    productName: string;
+    quantity: number;
+    ram: string;
+    color: string;
+    ops: string;
+    image: string;
+    price: number; // dùng number cho frontend, parse BigDecimal từ backend nếu cần
+    origin?: string;
 }
 
 export interface CartResponse {
@@ -19,15 +20,16 @@ export interface CartResponse {
 }
 
 export class ProductInCartModel implements ProductInCart {
-    idCartItem = ''
-    productId = ''
-    productName = ''
-    quantity = 0
-    ram = ''
-    color = ''
-    origin = ''
-    image = ''
-    price = 0
+    idCartItem = "";
+    productId = "";
+    productName = "";
+    quantity = 0;
+    ram = "";
+    color = "";
+    ops = "";
+    image = "";
+    price = 0;
+    origin = "";
 
     constructor(init?: Partial<ProductInCartModel>) {
         Object.assign(this, init);

@@ -20,8 +20,18 @@ public class CartResponse {
     private BigDecimal total;
 
     public static CartResponse fromCart(Cart cart) {
-        List<ProductInCart> productList = cart.getCartItems().stream()
-                .filter(item -> !item.isDeleted() && item.getStatus().equalsIgnoreCase(CartStatus.ACTIVE.getCode()))
+        if (cart == null || cart.getCartItems() == null) {
+            return CartResponse.builder().products(List.of()).totalQuantity(0).total(BigDecimal.ZERO).build();
+        }
+        return fromCartItems(cart.getCartItems().stream().filter(item -> !item.isDeleted()).toList());
+    }
+
+    public static CartResponse fromCartItems(List<CartItem> activeItems) {
+        if (activeItems == null) {
+            return CartResponse.builder().products(List.of()).totalQuantity(0).total(BigDecimal.ZERO).build();
+        }
+        List<ProductInCart> productList = activeItems.stream()
+                .filter(item -> item.getStatus().equalsIgnoreCase(CartStatus.ACTIVE.getCode()))
                 .map(item -> {
                     ProductVariant variant = item.getProductVariant();
                     Product product = variant.getProduct();

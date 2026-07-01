@@ -1,13 +1,19 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { toast } from 'vue3-toastify'
-import { authService } from '@/service/AuthService'
+import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { authService } from "@/service/AuthService.ts";
+import {toast} from "vue3-toastify";
+import { Search, ShoppingCart, User, Smartphone } from '@lucide/vue';
+import { useCartStore } from "@/cartStore";
 
-const router = useRouter()
-const showMenu = ref(false)
+const router = useRouter();
+const showMenu = ref(false);
+const cartStore = useCartStore();
+const cartCount = computed(() => cartStore.cartCount);
 
-const isAuth = computed(() => authService.isAuthenticated())
+// computed reactive: tự cập nhật khi token thay đổi
+const isAuth = computed(() => authService.isAuthenticated());
+const role = computed(() => authService.getRole());
 
 // toggle menu user
 const toggleMenu = () => {
@@ -32,6 +38,7 @@ const handleClickOutside = (event: MouseEvent) => {
 
 onMounted(() => {
   document.addEventListener("click", handleClickOutside);
+  cartStore.fetchCartCount();
 });
 
 </script>
@@ -39,35 +46,45 @@ onMounted(() => {
 <template>
   <header class="header">
     <nav class="nav-container">
-      <div class="logo">📱 Phone Store</div>
+      <div class="logo-menu-wrapper">
+        <div class="logo">
+          <Smartphone :size="20" class="logo-icon" />
+          <span>Phone Store</span>
+        </div>
 
-      <ul class="nav-menu">
-        <li><router-link to="/customer/home">Trang Chủ</router-link></li>
-        <li><router-link to="/customer/product-home">Sản Phẩm</router-link></li>
-        <li><router-link to="/customer/home">Liên Hệ</router-link></li>
-      </ul>
+        <ul class="nav-menu">
+          <li><router-link to="/customer/home">Trang chủ</router-link></li>
+          <li><router-link to="/customer/product-home">Sản phẩm</router-link></li>
+        </ul>
+      </div>
 
       <div class="nav-actions">
         <!-- SEARCH -->
-        <button class="icon-btn" aria-label="Tìm kiếm">🔍</button>
+        <button class="action-btn" aria-label="Tìm kiếm">
+          <Search :size="18" />
+        </button>
 
         <!-- CART -->
-        <router-link :to="{ name: 'cart' }" class="icon-btn cart-btn">
-          🛒
+        <router-link :to="{ name: 'cart' }" class="action-btn cart-btn">
+          <ShoppingCart :size="18" />
+          <span class="cart-badge">{{ cartCount }}</span>
         </router-link>
 
         <!-- LOGIN / USER MENU -->
         <router-link
             v-if="!isAuth"
             to="/login"
-            class="login-btn"
+            class="action-btn user-btn"
+            aria-label="Đăng nhập"
         >
-          Đăng nhập
+          <User :size="18" />
         </router-link>
 
         <!-- USER MENU -->
         <div v-else class="user-menu-wrapper">
-          <button class="icon-btn user-btn" @click.stop="toggleMenu">👤</button>
+          <button class="action-btn user-btn" @click.stop="toggleMenu" aria-label="Tài khoản">
+            <User :size="18" />
+          </button>
 
           <ul v-if="showMenu" class="dropdown">
             <li>
@@ -87,55 +104,78 @@ onMounted(() => {
 <style scoped>
 /* Header */
 .header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 20px 0;
+  background: transparent;
+  padding: 16px 0;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .nav-container {
   max-width: 1400px;
+  width: calc(100% - 40px);
   margin: 0 auto;
-  padding: 0 30px;
+  padding: 12px 32px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  border-radius: 24px;
+  border: 1px solid rgba(229, 231, 235, 0.6);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: all 0.3s ease;
 }
 
 .logo {
-  font-size: 2em;
+  font-size: 1.25rem;
   font-weight: 800;
+  color: #111827;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+}
+
+.logo-menu-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+}
+
+.logo-icon {
+  color: #7c3aed;
+  stroke-width: 2.5px;
 }
 
 .nav-menu {
   display: flex;
-  gap: 40px;
+  gap: 32px;
   list-style: none;
 }
 
 .nav-menu a {
-  color: white;
+  color: #4b5563;
   text-decoration: none;
   font-weight: 600;
-  font-size: 1.05em;
-  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
   position: relative;
+  padding: 4px 0;
+}
+
+.nav-menu a:hover {
+  color: #7c3aed;
 }
 
 .nav-menu a::after {
   content: "";
   position: absolute;
-  bottom: -5px;
+  bottom: -4px;
   left: 0;
   width: 0;
-  height: 3px;
-  background: white;
+  height: 2.5px;
+  background: #7c3aed;
+  border-radius: 4px;
   transition: width 0.3s ease;
 }
 
@@ -143,21 +183,28 @@ onMounted(() => {
   width: 100%;
 }
 
+.nav-menu a.router-link-active {
+  color: #7c3aed;
+}
+
+.nav-menu a.router-link-active::after {
+  width: 100%;
+}
+
 .nav-actions {
   display: flex;
-  gap: 20px;
+  gap: 12px;
   align-items: center;
 }
 
-/* Icon Button */
-.icon-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: none;
-  width: 45px;
-  height: 45px;
+/* Action button styling */
+.action-btn {
+  background: #ffffff;
+  color: #4b5563;
+  border: 1.5px solid #f3f4f6;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  font-size: 1.3em;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
@@ -165,41 +212,33 @@ onMounted(() => {
   justify-content: center;
 }
 
-.icon-btn:hover {
-  background: rgba(255, 255, 255, 0.28);
-  transform: scale(1.1);
+.action-btn:hover {
+  border-color: #e5e7eb;
+  color: #7c3aed;
+  background: #fafafa;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
 }
 
-/* Cart Badge */
 .cart-btn {
   position: relative;
 }
 
 .cart-badge {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  background: #ff4d4d;
+  top: -2px;
+  right: -2px;
+  background: #7c3aed;
   color: white;
-  font-size: 0.75em;
-  padding: 2px 6px;
+  font-size: 0.65rem;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   font-weight: 700;
-}
-
-/* Login Button */
-.login-btn {
-  padding: 10px 18px;
-  background: rgba(255, 255, 255, 0.25);
-  color: white;
-  font-weight: 600;
-  border-radius: 8px;
-  text-decoration: none;
-  transition: all 0.3s ease;
-}
-
-.login-btn:hover {
-  background: rgba(255, 255, 255, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(124, 58, 237, 0.3);
 }
 
 /* USER DROPDOWN */
@@ -210,29 +249,33 @@ onMounted(() => {
 .dropdown {
   position: absolute;
   right: 0;
-  top: 55px;
+  top: 50px;
   background: white;
-  color: #333;
+  color: #1f2937;
   list-style: none;
-  padding: 10px 0;
-  width: 180px;
-  border-radius: 10px;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+  padding: 8px 0;
+  width: 190px;
+  border-radius: 12px;
+  border: 1px solid rgba(229, 231, 235, 0.6);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
   animation: fadeIn 0.2s ease;
 }
 
 .dropdown li {
-  padding: 12px 18px;
+  padding: 10px 16px;
   cursor: pointer;
   font-weight: 500;
+  font-size: 0.88rem;
+  transition: background-color 0.2s ease;
 }
 
 .dropdown li:hover {
-  background: #f2f2f2;
+  background: #f9fafb;
+  color: #7c3aed;
 }
 
 .dropdown a {
-  color: #333;
+  color: inherit;
   text-decoration: none;
   display: block;
 }
@@ -245,6 +288,17 @@ onMounted(() => {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .nav-menu {
+    display: none;
+  }
+  .nav-container {
+    padding: 10px 20px;
+    width: calc(100% - 24px);
+    border-radius: 16px;
   }
 }
 </style>

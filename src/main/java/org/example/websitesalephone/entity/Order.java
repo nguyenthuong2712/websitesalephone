@@ -38,6 +38,8 @@ public class Order extends BaseEntity{
 
     private String orderCode;
 
+    private Long payosOrderCode;
+
     @Column(name = "address_detail", columnDefinition = "NVARCHAR(255) COLLATE Vietnamese_CI_AS")
     private String addressDetail;
 

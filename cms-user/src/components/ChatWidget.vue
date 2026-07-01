@@ -5,6 +5,7 @@ import { chatService } from '../service/ChatService'
 import type { ChatRoomDto, ChatMessageDto } from '../models/ChatModels'
 import SockJS from 'sockjs-client'
 import Stomp from 'stompjs'
+import { isChatOpen, chatUnreadCount, toggleChat } from '@/utils/chatState'
 
 const getUserIdFromToken = (): string => {
   const token = authService.getToken()
@@ -29,24 +30,16 @@ const getUserIdFromToken = (): string => {
   }
 }
 
-const isOpen = ref(false)
 const room = ref<ChatRoomDto | null>(null)
 const messages = ref<ChatMessageDto[]>([])
 const newMessage = ref('')
-const unreadCount = ref(0)
 const messagesContainer = ref<HTMLElement | null>(null)
+const isAiTyping = ref(false)
 
 let stompClient: Stomp.Client | null = null
 let socketConn: any = null
 let reconnectTimeout: any = null
 
-const toggleChat = () => {
-  isOpen.value = !isOpen.value
-  if (isOpen.value) {
-    unreadCount.value = 0
-    initChatRoom()
-  }
-}
 
 // Khi khách hàng mở widget chat lên, tự động cập nhật hiển thị tin nhắn admin gửi sang trạng thái READ
 const markCurrentMessagesAsReadLocally = () => {
@@ -99,7 +92,7 @@ const connectWebSocket = (roomId: string) => {
   const socketUrl = `${import.meta.env.VITE_ROOT_API}/ws`
   socketConn = new SockJS(socketUrl)
   stompClient = Stomp.over(socketConn)
-  stompClient.debug = () => {} // Disable logging
+  stompClient.debug = console.log // Enable logging for debugging
 
   stompClient.connect(
     {},
@@ -116,6 +109,11 @@ const connectWebSocket = (roomId: string) => {
       stompClient?.subscribe(`/topic/chat/room/${roomId}`, (messageOutput) => {
         const msg: ChatMessageDto = JSON.parse(messageOutput.body)
 
+        // Turn off AI typing bubble if message received from STAFF / AI
+        if (msg.senderRole === 'STAFF') {
+          isAiTyping.value = false
+        }
+
         // Avoid duplicate messages
         const exists = messages.value.some(m => m.id === msg.id)
         if (!exists) {
@@ -130,8 +128,8 @@ const connectWebSocket = (roomId: string) => {
 
         const currentUserId = getUserIdFromToken()
         if (msg.senderId !== currentUserId) {
-          if (!isOpen.value) {
-            unreadCount.value++
+          if (!isChatOpen.value) {
+            chatUnreadCount.value++
             // Notification
             if (Notification.permission === 'granted') {
               new Notification('Tin nhắn mới từ cửa hàng', {
@@ -184,11 +182,20 @@ const send = async () => {
     content: newMessage.value.trim(),
   }
 
+  isAiTyping.value = true // Hiển thị trạng thái "AI đang gõ..."
+  scrollToBottom()
+
+  // Safety fallback: Tự động tắt typing bubble sau 15 giây nếu không nhận được phản hồi
+  setTimeout(() => {
+    isAiTyping.value = false
+  }, 15000)
+
   try {
     await chatService.sendMessageRest(room.value.id, payload)
     newMessage.value = ''
   } catch (error) {
     console.error('Failed to send message', error)
+    isAiTyping.value = false
   }
 }
 
@@ -225,8 +232,10 @@ onUnmounted(() => {
   }
 })
 
-watch(isOpen, (newVal) => {
+watch(isChatOpen, (newVal) => {
   if (newVal) {
+    chatUnreadCount.value = 0
+    initChatRoom()
     setTimeout(scrollToBottom, 100)
   }
 })
@@ -234,14 +243,8 @@ watch(isOpen, (newVal) => {
 
 <template>
   <div v-if="authService.isAuthenticated() && authService.getRole() === 'CUSTOMER'" class="chat-widget-wrapper">
-    <!-- Floating Chat Button -->
-    <button class="chat-button" @click="toggleChat" :class="{ 'has-unread': unreadCount > 0 }">
-      <span class="chat-icon">💬</span>
-      <span v-if="unreadCount > 0" class="unread-badge">{{ unreadCount }}</span>
-    </button>
-
     <!-- Chat Box -->
-    <div v-if="isOpen" class="chat-box animate-fade-in">
+    <div v-if="isChatOpen" class="chat-box animate-fade-in">
       <!-- Chat Header -->
       <div class="chat-header">
         <div class="store-info">
@@ -276,6 +279,16 @@ watch(isOpen, (newVal) => {
             </span>
           </span>
         </div>
+
+        <!-- AI Typing Bubble Indicator -->
+        <div v-if="isAiTyping" class="message-wrapper incoming ai-typing">
+          <div class="message-bubble typing-bubble">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+          <span class="message-time">AI đang tư vấn...</span>
+        </div>
       </div>
 
       <!-- Chat Input -->
@@ -301,45 +314,7 @@ watch(isOpen, (newVal) => {
   right: 30px;
   z-index: 10000;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-}
-
-.chat-button {
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #007aff 0%, #0056b3 100%);
-  color: white;
-  border: none;
-  font-size: 28px;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  position: relative;
-}
-
-.chat-button:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 20px rgba(0, 122, 255, 0.5);
-}
-
-.chat-button.has-unread {
-  animation: pulse 2s infinite;
-}
-
-.unread-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background: #ff3b30;
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-  border-radius: 10px;
-  padding: 2px 7px;
-  border: 2px solid white;
+  pointer-events: none;
 }
 
 .chat-box {
@@ -355,6 +330,7 @@ watch(isOpen, (newVal) => {
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(0, 0, 0, 0.05);
+  pointer-events: auto;
 }
 
 @media (max-width: 480px) {
@@ -493,6 +469,36 @@ watch(isOpen, (newVal) => {
   color: #1c1c1e;
   border-bottom-left-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Typing Bubble styles */
+.typing-bubble {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  background: #e9ecef !important;
+}
+
+.typing-bubble .dot {
+  width: 6px;
+  height: 6px;
+  background: #8e8e93;
+  border-radius: 50%;
+  animation: typingDot 1.4s infinite both;
+}
+
+.typing-bubble .dot:nth-child(2) {
+  animation-delay: .2s;
+}
+
+.typing-bubble .dot:nth-child(3) {
+  animation-delay: .4s;
+}
+
+@keyframes typingDot {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
 }
 
 .message-time {

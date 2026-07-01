@@ -79,7 +79,7 @@ const connectWebSocket = () => {
   const socketUrl = `${import.meta.env.VITE_ROOT_API}/ws`
   socketConn = new SockJS(socketUrl)
   stompClient = Stomp.over(socketConn)
-  stompClient.debug = () => {} // Disable logging
+  stompClient.debug = console.log // Enable logging for debugging
 
   stompClient.connect(
     {},

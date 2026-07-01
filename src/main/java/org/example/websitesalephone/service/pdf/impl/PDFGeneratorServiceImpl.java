@@ -9,6 +9,7 @@ import org.example.websitesalephone.repository.OrderRepository;
 import org.example.websitesalephone.service.pdf.PDFGeneratorService;
 import org.example.websitesalephone.utils.Constants;
 import org.example.websitesalephone.utils.Utils;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import com.itextpdf.text.*;
 import com.itextpdf.text.pdf.BaseFont;
@@ -17,6 +18,7 @@ import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 
 @Service
@@ -39,11 +41,18 @@ public class PDFGeneratorServiceImpl implements PDFGeneratorService {
         try {
             PdfWriter.getInstance(document, response.getOutputStream());
             document.open();
-            String fontPath = "fonts/Roboto-Regular.ttf";
 
-            BaseFont bf = BaseFont.createFont(fontPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
-            Font fontTitle = new Font(bf, 18, Font.BOLD);
-            Font fontParagraph = new Font(bf, 12, Font.BOLD);
+            // Safe Classpath Loading for Font to avoid File Not Found errors
+            ClassPathResource fontResource = new ClassPathResource("fonts/Roboto-Regular.ttf");
+            byte[] fontBytes;
+            try (InputStream is = fontResource.getInputStream()) {
+                fontBytes = is.readAllBytes();
+            }
+            BaseFont bf = BaseFont.createFont("Roboto-Regular.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, fontBytes, null);
+
+            // Changing style from Font.BOLD to Font.NORMAL to prevent iText font encoding corruption with diacritics
+            Font fontTitle = new Font(bf, 18, Font.NORMAL);
+            Font fontParagraph = new Font(bf, 12, Font.NORMAL);
 
             PdfPTable lineTable = new PdfPTable(1);
             lineTable.setWidthPercentage(100);
@@ -100,7 +109,8 @@ public class PDFGeneratorServiceImpl implements PDFGeneratorService {
                 document.add(paragraph9);
             }
 
-            Paragraph paragraph10 = new Paragraph("Nhân viên bán hàng: " + order.getStaff().getFullName(), fontParagraph);
+            String staffName = order.getStaff() != null ? order.getStaff().getFullName() : "Khách tự đặt hàng";
+            Paragraph paragraph10 = new Paragraph("Nhân viên bán hàng: " + staffName, fontParagraph);
             paragraph10.setAlignment(Element.ALIGN_LEFT);
             document.add(paragraph10);
 
@@ -110,7 +120,7 @@ public class PDFGeneratorServiceImpl implements PDFGeneratorService {
             document.add(paragraph11);
             document.add(new Paragraph("\n")); // Thêm một dòng trống
 
-            Font fontTableHeader = new Font(bf, 12, Font.BOLD);
+            Font fontTableHeader = new Font(bf, 12, Font.NORMAL);
             String[] tableHeaders = {"STT", "Sản phẩm", "Số lượng", "Đơn giá", "Thành tiền"};
 
             PdfPTable table = new PdfPTable(5);
@@ -139,7 +149,7 @@ public class PDFGeneratorServiceImpl implements PDFGeneratorService {
                 tongTienSanPham = tongTienSanPham.add(thanhTien);
             }
 
-            Font fontTotal = new Font(bf, 12, Font.BOLDITALIC);
+            Font fontTotal = new Font(bf, 12, Font.NORMAL);
             PdfPCell cellTotalLabel = new PdfPCell(
                     new Phrase("Tổng tiền sản phẩm: " + Utils.formatBigDecimal(tongTienSanPham) + " VND", fontTotal)
             );

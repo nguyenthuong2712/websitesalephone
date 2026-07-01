@@ -18,6 +18,12 @@ public class ProductVariantResponse {
 
     private int quantity;
 
+    private String ramId;
+    private String colorId;
+    private String originId;
+    private String screenId;
+    private String cameraId;
+
     private String colorName;
 
     private String originName;
@@ -36,6 +42,11 @@ public class ProductVariantResponse {
                 .idProduct(productVariant.getId())
                 .quantity(productVariant.getQuantity())
                 .price(productVariant.getPrice())
+                .ramId(productVariant.getRam().getId())
+                .colorId(productVariant.getColor().getId())
+                .originId(productVariant.getOrigin().getId())
+                .screenId(productVariant.getScreen().getId())
+                .cameraId(productVariant.getCamera().getId())
                 .build();
     }
 
@@ -52,6 +63,11 @@ public class ProductVariantResponse {
                 .ramName(productVariant.getRam().getName())
                 .cameraName(productVariant.getCamera().getName())
                 .screenName(productVariant.getScreen().getName())
+                .ramId(productVariant.getRam().getId())
+                .colorId(productVariant.getColor().getId())
+                .originId(productVariant.getOrigin().getId())
+                .screenId(productVariant.getScreen().getId())
+                .cameraId(productVariant.getCamera().getId())
                 .build();
     }
 }

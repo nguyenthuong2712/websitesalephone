@@ -21,6 +21,15 @@ class CartService {
     public checkoutCart(checkOutRequest: ICheckOutRequest): Promise<AxiosResponse> {
         return api.post(`${this.ROOT_API}checkout`, checkOutRequest)
     }
+
+    public buyNow(buyNowCartRequest: {
+        variantId: string
+        quantity: number
+        addressLine: string
+        paymentMethod: string
+    }): Promise<AxiosResponse> {
+        return api.post(`${this.ROOT_API}buy-now`, buyNowCartRequest)
+    }
 }
 
 export const cartService = new CartService()

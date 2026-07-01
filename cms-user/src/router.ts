@@ -7,6 +7,7 @@ import Cart from './pages/home/Cart.vue'
 import HomeProduct from './pages/home/HomeProduct.vue'
 import PaymentSuccess from './pages/home/PaymentSuccess.vue'
 import PaymentFailed from './pages/home/PaymentFailed.vue'
+import Checkout from './pages/home/Checkout.vue'
 
 // Admin pages
 import AdminLayout from './layout/AdminLayout.vue'
@@ -104,6 +105,12 @@ const router = createRouter({
                     path: 'payment-failed',
                     name: 'PaymentFailed',
                     component: PaymentFailed,
+                    meta: { requiresAuth: true, roles: ['CUSTOMER'] }
+                },
+                {
+                    path: 'checkout',
+                    name: 'checkout',
+                    component: Checkout,
                     meta: { requiresAuth: true, roles: ['CUSTOMER'] }
                 }
             ]

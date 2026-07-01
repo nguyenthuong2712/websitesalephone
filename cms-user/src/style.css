@@ -1,3 +1,21 @@
 a {
     text-decoration: none;
 }
+
+/* Set max-width: 1280px (Tailwind max-w-7xl equivalent) on all main containers */
+.container,
+.hero-container,
+.features-container,
+.testimonials-container,
+.newsletter-container-alt,
+.breadcrumb-container,
+.product-detail,
+.settings-container,
+.orders-page-wrapper,
+.order-detail-wrapper,
+.cart-page-wrapper,
+.nav-container {
+    max-width: 1280px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}

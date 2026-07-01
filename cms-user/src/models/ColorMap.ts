@@ -31,5 +31,8 @@ export const colorMap: Record<string, string> = {
     KHAKI: "#F0E68C",
     MINT: "#98FF98",
     PEACH: "#FFE5B4",
-    // Thêm các màu khác nếu cần
+    XANH_DAM: "#0f172a",
+    VANG_NHAT: "#fef08a",
+    MAU_DEN: "#000000",
+    XANH_DA_TROI: "#38bdf8",
 };

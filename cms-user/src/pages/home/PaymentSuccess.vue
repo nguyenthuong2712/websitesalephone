@@ -5,9 +5,8 @@ import Footer from '../../layout/Footer.vue'
 
 const route = useRoute()
 
-const transactionNo = route.query.vnp_TransactionNo as string
-const amount = route.query.vnp_Amount ? (Number(route.query.vnp_Amount) / 100) : 0
-const orderInfo = route.query.vnp_OrderInfo as string
+const transactionNo = route.query.paymentLinkId as string
+const orderCode = route.query.orderCode as string
 const orderId = route.query.orderId as string
 </script>
 
@@ -25,21 +24,21 @@ const orderId = route.query.orderId as string
             <p class="text-muted mb-4">Cảm ơn bạn đã mua sắm tại Website Sale Phone. Đơn hàng của bạn đã được ghi nhận và đang chờ xử lý.</p>
 
             <div class="bg-light rounded p-4 mb-4 text-start">
-              <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
-                <span class="text-secondary">Mã giao dịch VNPAY:</span>
+              <div class="d-flex justify-content-between mb-3 border-bottom pb-2" v-if="transactionNo">
+                <span class="text-secondary">Mã liên kết PayOS:</span>
                 <strong class="text-dark">{{ transactionNo }}</strong>
+              </div>
+              <div class="d-flex justify-content-between mb-3 border-bottom pb-2" v-if="orderCode">
+                <span class="text-secondary">Mã số giao dịch:</span>
+                <strong class="text-dark">{{ orderCode }}</strong>
               </div>
               <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
                 <span class="text-secondary">Mã đơn hàng:</span>
                 <strong class="text-dark">{{ orderId }}</strong>
               </div>
-              <div class="d-flex justify-content-between mb-3 border-bottom pb-2">
-                <span class="text-secondary">Nội dung thanh toán:</span>
-                <strong class="text-dark">{{ orderInfo }}</strong>
-              </div>
               <div class="d-flex justify-content-between">
-                <span class="text-secondary font-weight-bold">Số tiền thanh toán:</span>
-                <strong class="text-success">{{ amount.toLocaleString('vi-VN') }}đ</strong>
+                <span class="text-secondary font-weight-bold">Trạng thái:</span>
+                <strong class="text-success">Đã xác nhận thanh toán</strong>
               </div>
             </div>
 

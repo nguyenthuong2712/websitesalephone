@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {ref, onMounted, computed} from "vue";
+import { useRouter } from 'vue-router';
 import HomeLayout from "../../layout/Header.vue";
 import Footer from "../../layout/Footer.vue";
 import { cartService } from '@/service/CartService';
@@ -8,6 +9,9 @@ import { CartRequest } from '@/models/CartRequest';
 import { toast } from 'vue3-toastify';
 import { CheckOutRequest } from '@/models/CheckOutRequest';
 import { paymentService } from '@/service/PaymentService';
+import { useCartStore } from '@/cartStore';
+
+const router = useRouter();
 
 type CartItemWithSelect = ProductInCart & { selected: boolean };
 const cartItems = ref<CartItemWithSelect[]>([]);
@@ -15,8 +19,24 @@ const loading = ref(false);
 const search = {};
 const address = ref<string>("");
 const paymentMethod = ref<string>("COD");
+const isBuyNow = ref(false);
 
 const fetchCartItems = async () => {
+  const buyNowStr = sessionStorage.getItem('buyNowCart');
+  if (buyNowStr) {
+    try {
+      const items = JSON.parse(buyNowStr);
+      if (items && items.length > 0) {
+        cartItems.value = items.map((item: any) => ({ ...item, selected: true }));
+        isBuyNow.value = true;
+        return;
+      }
+    } catch (e) {
+      console.error("Lỗi parse buyNowCart", e);
+    }
+  }
+
+  isBuyNow.value = false;
   loading.value = true;
   try {
     const response = await cartService.getCartItems(search);
@@ -48,6 +68,11 @@ const allSelected = computed({
 
 const increaseQty = async (item: CartItemWithSelect) => {
   item.quantity++;
+  if (isBuyNow.value) {
+    sessionStorage.setItem('buyNowCart', JSON.stringify(cartItems.value));
+    return;
+  }
+
   try {
     const res = await cartService.updateCartItem(new CartRequest(item.idCartItem, item.productId, item.quantity).toPayload());
     if (res.data.code === 2) {
@@ -65,6 +90,11 @@ const increaseQty = async (item: CartItemWithSelect) => {
 const decreaseQty = async (item: CartItemWithSelect) => {
   if (item.quantity > 1) {
     item.quantity--;
+    if (isBuyNow.value) {
+      sessionStorage.setItem('buyNowCart', JSON.stringify(cartItems.value));
+      return;
+    }
+
     try {
       const res = await cartService.updateCartItem(new CartRequest(item.idCartItem, item.productId, item.quantity).toPayload());
       if (res.data.code === 2) {
@@ -79,6 +109,13 @@ const decreaseQty = async (item: CartItemWithSelect) => {
 };
 
 const removeItem = async (item: CartItemWithSelect) => {
+  if (isBuyNow.value) {
+    sessionStorage.removeItem('buyNowCart');
+    cartItems.value = [];
+    isBuyNow.value = false;
+    return;
+  }
+
   try {
     const res = await cartService.updateCartItem(new CartRequest(item.idCartItem, item.productId, 0).toPayload());
     if (res.data.code === 2) {
@@ -93,32 +130,85 @@ const removeItem = async (item: CartItemWithSelect) => {
 };
 
 const checkout = async () => {
-  const payload = new CheckOutRequest(
-      address.value
-  );
+  if (isDisable()) return;
+
+  loading.value = true;
   try {
-    const res = await cartService.checkoutCart(payload.toPayload());
-    if (res.data.code === 2) {
-      toast.error(res.data.message);
+    let res;
+    let selectedItemIds: string[] = [];
+    if (!isBuyNow.value) {
+      selectedItemIds = cartItems.value.filter(i => i.selected).map(i => i.idCartItem);
+      if (selectedItemIds.length === 0) {
+        toast.error("Vui lòng chọn ít nhất một sản phẩm để đặt hàng.");
+        loading.value = false;
+        return;
+      }
+    }
+
+    if (isBuyNow.value) {
+      const buyItem = cartItems.value[0];
+      if (!buyItem) {
+        toast.error("Không có sản phẩm để mua ngay.");
+        loading.value = false;
+        return;
+      }
+      res = await cartService.buyNow({
+        variantId: buyItem.productId,
+        quantity: buyItem.quantity,
+        addressLine: address.value.trim(),
+        paymentMethod: paymentMethod.value
+      });
+    } else {
+      const payload = new CheckOutRequest(address.value, paymentMethod.value, selectedItemIds);
+      res = await cartService.checkoutCart(payload.toPayload());
+    }
+
+    if (res.data.code === 2 || (res.data.code !== 0 && isBuyNow.value)) {
+      toast.error(res.data.message || 'Đặt hàng thất bại');
       return;
     }
 
     const createdOrder = res.data.data;
-    if (paymentMethod.value === 'VNPAY') {
-      toast.info('Đang chuyển hướng sang cổng thanh toán VNPAY...');
-      const paymentRes = await paymentService.createPayment(createdOrder.order_id);
-      if (paymentRes.data.code === 0) {
-        window.location.href = paymentRes.data.data;
-      } else {
-        toast.error(paymentRes.data.message || 'Không thể tạo link thanh toán VNPAY');
+
+    if (isBuyNow.value) {
+      sessionStorage.removeItem('buyNowCart');
+      cartItems.value = [];
+    } else {
+      // Remove selected items from local reactive cart list immediately
+      cartItems.value = cartItems.value.filter(i => !selectedItemIds.includes(i.idCartItem));
+    }
+
+    const cartStore = useCartStore();
+    await cartStore.fetchCartCount();
+
+    if (paymentMethod.value === 'PAYOS') {
+      toast.info('Đang chuyển hướng sang cổng thanh toán PayOS...');
+      try {
+        const paymentRes = await paymentService.createPayment(createdOrder.order_id);
+        if (paymentRes.data.code === 0) {
+          window.location.href = paymentRes.data.data;
+        } else {
+          toast.error(paymentRes.data.message || 'Không thể tạo link thanh toán PayOS');
+          router.push({ name: 'OrderOfUSer' });
+        }
+      } catch (paymentErr) {
+        console.error("PayOS create payment error", paymentErr);
+        toast.error("Lỗi khi kết nối với cổng thanh toán. Chuyển hướng sang danh sách đơn hàng.");
+        router.push({ name: 'OrderOfUSer' });
       }
     } else {
-      toast.success('Đặt hàng thành công!');
-      await fetchCartItems();
+      // COD payment: Show success toast and delay redirect
+      toast.success('Đặt hàng thành công! Đang xử lý...');
+      setTimeout(() => {
+        router.push({ name: 'OrderOfUSer' });
+      }, 1500);
     }
-  } catch (err) {
+
+  } catch (err: any) {
     console.error('Checkout error', err);
     toast.error('Đặt hàng thất bại');
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -150,7 +240,51 @@ const cartColorMap: Record<string, string> = {
   NAU: '#8B4513',
   XAM: '#808080',
   BAC: '#C0C0C0',
+  VANG_NHAT: '#fef08a',
+  MAU_DEN: '#000000',
+  XANH_DA_TROI: '#38bdf8',
 }
+
+const translateColorName = (name: string): string => {
+  if (!name) return "";
+  const normalized = name.toUpperCase().trim();
+
+  if (normalized === 'BLACK' || normalized === '#000000' || normalized === 'DEN' || normalized === 'BLACK_COLOR' || normalized === 'TITAN ĐEN') return 'Đen';
+  if (normalized === 'WHITE' || normalized === '#FFFFFF' || normalized === 'TRANG' || normalized === 'TITAN TRẮNG') return 'Trắng';
+  if (normalized === 'RED' || normalized === '#FF0000' || normalized === 'DO') return 'Đỏ';
+  if (normalized === 'GREEN' || normalized === '#00FF00' || normalized === '#00A651' || normalized === 'XANH_LA' || normalized === 'XANH LA') return 'Xanh lá';
+  if (normalized === 'BLUE' || normalized === '#0000FF' || normalized === 'XANH') return 'Xanh dương';
+  if (normalized === 'YELLOW' || normalized === '#FFFF00' || normalized === 'VANG') return 'Vàng';
+  if (normalized === 'ORANGE' || normalized === '#FFA500' || normalized === 'CAM') return 'Cam';
+  if (normalized === 'PINK' || normalized === '#FFC0CB' || normalized === 'HONG') return 'Hồng';
+  if (normalized === 'PURPLE' || normalized === '#800080' || normalized === 'TIM') return 'Tím';
+  if (normalized === 'GREY' || normalized === 'GRAY' || normalized === '#808080' || normalized === 'XAM') return 'Xám';
+  if (normalized === 'SILVER' || normalized === '#C0C0C0' || normalized === 'BAC') return 'Bạc';
+  if (normalized === 'GOLD' || normalized === '#FFD700') return 'Vàng Gold';
+  if (normalized === 'BROWN' || normalized === '#8B4513' || normalized === 'NAU') return 'Nâu';
+  if (normalized === 'CHOCOLATE' || normalized === '#D2691E') return 'Nâu socola';
+  if (normalized === 'NAVY' || normalized === '#000080' || normalized === 'XANH_DAM' || normalized === 'XANH DAM' || normalized === 'TITAN XANH') return 'Xanh dương đậm';
+  if (normalized === 'TEAL' || normalized === '#008080') return 'Xanh lục lam';
+  if (normalized === 'TURQUOISE' || normalized === '#40E0D0') return 'Xanh ngọc';
+  if (normalized === 'VIOLET' || normalized === '#EE82EE') return 'Tím violet';
+  if (normalized === 'CORAL' || normalized === '#FF7F50') return 'Đỏ san hô';
+  if (normalized === 'LIME') return 'Xanh chanh';
+  if (normalized === 'OLIVE') return 'Xanh ô liu';
+  if (normalized === 'MAROON') return 'Đỏ hạt dẻ';
+  if (normalized === 'INDIGO') return 'Xanh chàm';
+  if (normalized === 'BEIGE') return 'Kem';
+  if (normalized === 'TAN') return 'Nâu sáng';
+  if (normalized === 'SALMON') return 'Hồng cam';
+  if (normalized === 'KHAKI') return 'Vàng kaki';
+  if (normalized === 'MINT') return 'Xanh bạc hà';
+  if (normalized === 'PEACH') return 'Màu đào';
+  if (normalized === 'TITAN TỰ NHIÊN') return 'Titan tự nhiên';
+  if (normalized === 'VANG_NHAT' || normalized === 'VÀNG NHẠT') return 'Vàng nhạt';
+  if (normalized === 'MAU_DEN' || normalized === 'MÀU ĐEN') return 'Đen';
+  if (normalized === 'XANH_DA_TROI' || normalized === 'XANH DA TRỜI') return 'Xanh da trời';
+
+  return name;
+};
 
 const resolveCartColorHex = (colorName?: string): string => {
   if (!colorName) return '#ccc'
@@ -239,11 +373,11 @@ function isDisable(): boolean{
             <h3 class="item-name">{{ item.productName }}</h3>
             <div class="item-specs">
               <span class="spec-badge">{{ item.ram }}</span>
-              <span
-                  class="spec-badge"
-                  :style="getCartColorStyle(item.color)"
-              ></span>
-              <span class="spec-badge">{{ item.origin }}</span>
+              <span class="spec-badge color-badge" style="display: inline-flex; align-items: center; gap: 6px;">
+                <span class="color-circle-small" :style="{ backgroundColor: resolveCartColorHex(item.color) }"></span>
+                <span>{{ translateColorName(item.color) }}</span>
+              </span>
+              <span class="spec-badge">{{ item.origin}}</span>
             </div>
             <div class="item-price">{{ Number(item.price).toLocaleString('vi-VN') }}₫</div>
             <div class="item-controls">
@@ -283,8 +417,8 @@ function isDisable(): boolean{
               <span>💵 Thanh toán khi nhận hàng (COD)</span>
             </label>
             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; width: 100%; font-weight: normal;">
-              <input type="radio" v-model="paymentMethod" value="VNPAY" />
-              <span>💳 Thanh toán trực tuyến qua VNPAY</span>
+              <input type="radio" v-model="paymentMethod" value="PAYOS" />
+              <span>💳 Thanh toán trực tuyến qua PayOS (VietQR)</span>
             </label>
           </div>
         </div>
@@ -564,6 +698,15 @@ body {
   font-size: 0.85em;
   color: #666;
   font-weight: 600;
+}
+
+.color-circle-small {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  flex-shrink: 0;
 }
 
 .item-price {

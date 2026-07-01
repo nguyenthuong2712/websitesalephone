@@ -14,10 +14,12 @@ import org.example.websitesalephone.comon.CommonResponse;
 import org.example.websitesalephone.utils.Utils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 @Service
@@ -44,7 +46,41 @@ public class ProductServiceImpl implements ProductService {
     @Transactional(readOnly = true)
     public CommonResponse getALl(ProductSearch productSearch) {
 
-        PageRequest pageRequest = Utils.getPaging(productSearch);
+        // Determine sort parameters
+        String sortByField = "createdAt";
+        boolean sortDesc = true;
+
+        if (productSearch.getSortBy() != null) {
+            String sortBy = productSearch.getSortBy().trim();
+            if ("newest".equalsIgnoreCase(sortBy)) {
+                sortByField = "createdAt";
+                sortDesc = true;
+            } else if ("oldest".equalsIgnoreCase(sortBy)) {
+                sortByField = "createdAt";
+                sortDesc = false;
+            } else if ("priceAsc".equalsIgnoreCase(sortBy)) {
+                sortByField = "price";
+                sortDesc = false;
+            } else if ("priceDesc".equalsIgnoreCase(sortBy)) {
+                sortByField = "price";
+                sortDesc = true;
+            } else if ("nameAsc".equalsIgnoreCase(sortBy)) {
+                sortByField = "name";
+                sortDesc = false;
+            } else if ("nameDesc".equalsIgnoreCase(sortBy)) {
+                sortByField = "name";
+                sortDesc = true;
+            } else {
+                sortByField = productSearch.getSortBy();
+                sortDesc = productSearch.isSortDesc();
+            }
+        }
+
+        PageRequest pageRequest = PageRequest.of(
+                productSearch.getPage() == null || productSearch.getPage() < 1 ? 0 : productSearch.getPage() - 1,
+                productSearch.getSize() == null ? 10 : productSearch.getSize(),
+                Sort.by(sortDesc ? Sort.Direction.DESC : Sort.Direction.ASC, sortByField)
+        );
 
         Specification<Product> spec = (root, query, cb) -> {
             List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
@@ -54,9 +90,53 @@ public class ProductServiceImpl implements ProductService {
                 predicates.add(cb.like(cb.lower(root.get("name")), searchText));
             }
 
+            // Hãng sản xuất filter (shopId)
+            if (Strings.isNotEmpty(productSearch.getShopId())) {
+                predicates.add(cb.equal(root.get("shopRegistration").get("id"), productSearch.getShopId()));
+            }
+
             predicates.add(cb.equal(root.get("isDeleted"), false));
 
-            Objects.requireNonNull(query).orderBy(cb.desc(root.get("createdAt")));
+            // Join variants if we have variant filters (ramId, cameraId, originId, minPrice, maxPrice)
+            boolean hasVariantFilter = Strings.isNotEmpty(productSearch.getRamId())
+                    || Strings.isNotEmpty(productSearch.getCameraId())
+                    || Strings.isNotEmpty(productSearch.getOriginId());
+
+            boolean hasPriceFilter = productSearch.getMinPrice() != null || productSearch.getMaxPrice() != null;
+
+            if (hasVariantFilter || hasPriceFilter) {
+                // If we only have price filters, use LEFT join to avoid excluding products without variants.
+                // If we have variant filters (RAM, Camera, Origin), use INNER join because they are required attributes.
+                jakarta.persistence.criteria.JoinType joinType = hasVariantFilter ? jakarta.persistence.criteria.JoinType.INNER : jakarta.persistence.criteria.JoinType.LEFT;
+                jakarta.persistence.criteria.Join<Product, ProductVariant> variantJoin = root.join("variants", joinType);
+                predicates.add(cb.equal(variantJoin.get("isDeleted"), false));
+
+                if (Strings.isNotEmpty(productSearch.getRamId())) {
+                    predicates.add(cb.equal(variantJoin.get("ram").get("id"), productSearch.getRamId()));
+                }
+                if (Strings.isNotEmpty(productSearch.getCameraId())) {
+                    predicates.add(cb.equal(variantJoin.get("camera").get("id"), productSearch.getCameraId()));
+                }
+                if (Strings.isNotEmpty(productSearch.getOriginId())) {
+                    predicates.add(cb.equal(variantJoin.get("origin").get("id"), productSearch.getOriginId()));
+                }
+
+                // Price range filter
+                if (productSearch.getMinPrice() != null) {
+                    predicates.add(cb.or(
+                            cb.and(cb.isNotNull(root.get("price")), cb.greaterThanOrEqualTo(root.get("price"), productSearch.getMinPrice())),
+                            cb.and(cb.or(cb.isNull(root.get("price")), cb.lessThanOrEqualTo(root.get("price"), BigDecimal.ZERO)),
+                                    cb.greaterThanOrEqualTo(variantJoin.get("price"), productSearch.getMinPrice()))
+                    ));
+                }
+                if (productSearch.getMaxPrice() != null) {
+                    predicates.add(cb.or(
+                            cb.and(cb.isNotNull(root.get("price")), cb.lessThanOrEqualTo(root.get("price"), productSearch.getMaxPrice())),
+                            cb.and(cb.or(cb.isNull(root.get("price")), cb.lessThanOrEqualTo(root.get("price"), BigDecimal.ZERO)),
+                                    cb.lessThanOrEqualTo(variantJoin.get("price"), productSearch.getMaxPrice()))
+                    ));
+                }
+            }
 
             if (!query.getResultType().equals(Long.class)) {
                 query.distinct(true);

@@ -46,6 +46,9 @@ const countOrderByStaff = async (status: OrderStatus) => {
 };
 
 const callSearch = async (status: '' | OrderStatus) => {
+  if (activeStatus.value !== status) {
+    page.value = 1;
+  }
   activeStatus.value = status;
   const search = new Search(page.value, size.value, searchText.value, status);
   const res = await orderService.search(search);
@@ -68,7 +71,7 @@ const onPageChange = (newPage: number) => {
   }
 
   page.value = newPage;
-  callSearch('');
+  callSearch(activeStatus.value as '' | OrderStatus);
 };
 
 onMounted(async () => {
@@ -190,7 +193,7 @@ watch(searchText, () => {
       <button
           class="page-btn active"
       >
-        {{ page }} / {{ totalPages + 1 }}
+        {{ page }} / {{ totalPages }}
       </button>
       <button class="page-btn" :disabled="page >= totalPages" @click="onPageChange(page + 1)">»</button>
     </div>

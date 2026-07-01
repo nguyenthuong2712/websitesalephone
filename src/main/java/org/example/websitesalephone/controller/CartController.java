@@ -34,4 +34,9 @@ public class CartController {
     public CommonResponse checkout(@RequestBody CheckOutRequest checkOutRequest) {
         return cartService.checkoutCart(checkOutRequest);
     }
+
+    @PostMapping("/buy-now")
+    public CommonResponse buyNow(@RequestBody org.example.websitesalephone.dto.cart.BuyNowCartRequest buyNowCartRequest) {
+        return cartService.buyNow(buyNowCartRequest);
+    }
 }

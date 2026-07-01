@@ -50,6 +50,11 @@ public class OrderController {
         return orderService.getListOrderByUser(orderByUserRequest);
     }
 
+    @PostMapping("/buy-now")
+    public CommonResponse buyNow(@RequestBody org.example.websitesalephone.dto.order.BuyNowRequest buyNowRequest) {
+        return orderService.buyNow(buyNowRequest);
+    }
+
     @PostMapping("/count-order-user")
     public CommonResponse countOrderByUser(@RequestBody CountOrderRequest countOrderRequest) {
         return orderService.countOrderByUser(countOrderRequest);
@@ -61,8 +66,8 @@ public class OrderController {
     }
 
     @GetMapping("/dashboard/{searchText}")
-    public CommonResponse countDashBoard(@PathVariable String searchText) {
-        return orderService.countDashBoard(searchText);
+    public CommonResponse countDashBoard(@PathVariable String searchText, @RequestParam(required = false, defaultValue = "ALL") String range) {
+        return orderService.countDashBoard(searchText, range);
     }
 
     @GetMapping("/pdf/generate/{id}")

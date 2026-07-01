@@ -66,12 +66,21 @@ public class ProductListResponse {
             statusCode = ProductStatus.OUT_OF_STOCK.getCode();
         }
 
+        BigDecimal displayPrice = entity.getPrice();
+        if (displayPrice == null || displayPrice.compareTo(BigDecimal.ZERO) <= 0) {
+            displayPrice = variants.stream()
+                    .filter(v -> !v.isDeleted() && v.getPrice() != null)
+                    .map(ProductVariant::getPrice)
+                    .min(BigDecimal::compareTo)
+                    .orElse(BigDecimal.ZERO);
+        }
+
         return ProductListResponse.builder()
                 .id(entity.getId())
                 .url(imageUrl)
                 .productName(entity.getName())
                 .originName(variants.isEmpty() ? null : variants.getFirst().getOrigin().getName())
-                .price(entity.getPrice())
+                .price(displayPrice)
                 .quantity(totalQuantity)
                 .quantityUnitSold(totalQuantitySold)
                 .status(statusCode)

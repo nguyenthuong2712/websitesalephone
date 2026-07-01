@@ -7,14 +7,18 @@ import org.example.websitesalephone.comon.CommonResponse;
 import org.example.websitesalephone.comon.PageResponse;
 import org.example.websitesalephone.dto.order.*;
 import org.example.websitesalephone.entity.Order;
+import org.example.websitesalephone.entity.OrderItem;
 import org.example.websitesalephone.entity.OrderStatusHistory;
 import org.example.websitesalephone.entity.Product;
+import org.example.websitesalephone.entity.ProductVariant;
 import org.example.websitesalephone.entity.User;
 import org.example.websitesalephone.enums.OrderStatus;
 import org.example.websitesalephone.enums.RoleEnums;
+import org.example.websitesalephone.repository.OrderItemRepository;
 import org.example.websitesalephone.repository.OrderRepository;
 import org.example.websitesalephone.repository.OrderStatusHistoryRepository;
 import org.example.websitesalephone.repository.ProductRepository;
+import org.example.websitesalephone.repository.ProductVariantRepository;
 import org.example.websitesalephone.repository.UserRepository;
 import org.example.websitesalephone.service.order.OrderService;
 import org.example.websitesalephone.spe.OrderSpecification;
@@ -27,6 +31,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +49,10 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
 
     private final ProductRepository productRepository;
+
+    private final ProductVariantRepository productVariantRepository;
+
+    private final OrderItemRepository orderItemRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -143,7 +152,16 @@ public class OrderServiceImpl implements OrderService {
 
         if (Objects.equals(orderRequest.getStatus(), OrderStatus.CANCELLED.getCode())) {
             newStatus = OrderStatus.CANCELLED;
-
+            // Restore inventory
+            if (order.getOrderItems() != null) {
+                for (OrderItem item : order.getOrderItems()) {
+                    ProductVariant variant = item.getProductVariant();
+                    if (variant != null) {
+                        variant.setQuantity(variant.getQuantity() + item.getQuantity());
+                        productVariantRepository.saveAndFlush(variant);
+                    }
+                }
+            }
         } else {
             int nextStep = currentStatus.getStep() + 1;
             newStatus = OrderStatus.fromStep(nextStep);
@@ -342,6 +360,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public CommonResponse countDashBoard(String searchText) {
+        return countDashBoard(searchText, "ALL");
+    }
+
+    @Override
+    public CommonResponse countDashBoard(String searchText, String range) {
         User loginUser = getAuthenticatedUser();
         if (loginUser == null) {
             return CommonResponse.builder()
@@ -374,7 +397,36 @@ public class OrderServiceImpl implements OrderService {
                 result = orderRepository.countByStatus("CANCELLED");
             }
             case "REVENUE" -> {
-                result = orderRepository.getRevenueByStatus();
+                if (range == null || range.trim().isEmpty() || "ALL".equalsIgnoreCase(range.trim())) {
+                    result = orderRepository.getRevenueByStatus();
+                } else {
+                    OffsetDateTime now = OffsetDateTime.now();
+                    OffsetDateTime startDate;
+                    OffsetDateTime endDate;
+
+                    String normalizedRange = range.trim().toUpperCase();
+                    switch (normalizedRange) {
+                        case "TODAY" -> {
+                            startDate = now.with(java.time.LocalTime.MIN);
+                            endDate = now.with(java.time.LocalTime.MAX);
+                        }
+                        case "MONTH" -> {
+                            startDate = now.withDayOfMonth(1).with(java.time.LocalTime.MIN);
+                            endDate = now.with(java.time.temporal.TemporalAdjusters.lastDayOfMonth()).with(java.time.LocalTime.MAX);
+                        }
+                        case "YEAR" -> {
+                            startDate = now.withDayOfYear(1).with(java.time.LocalTime.MIN);
+                            endDate = now.withDayOfYear(now.toLocalDate().lengthOfYear()).with(java.time.LocalTime.MAX);
+                        }
+                        default -> {
+                            return CommonResponse.builder()
+                                    .code(CommonResponse.CODE_BUSINESS)
+                                    .message("Khoảng thời gian lọc không hợp lệ")
+                                    .build();
+                        }
+                    }
+                    result = orderRepository.getRevenueByStatusAndDateRange(startDate, endDate);
+                }
             }
             default -> {
                 return CommonResponse.builder()
@@ -387,6 +439,84 @@ public class OrderServiceImpl implements OrderService {
         return CommonResponse.builder()
                 .code(CommonResponse.CODE_SUCCESS)
                 .data(result)
+                .build();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public CommonResponse buyNow(BuyNowRequest req) {
+        User user = getAuthenticatedUser();
+        if (user == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_ACCOUNT_EXCEPTION)
+                    .message("Vui lòng đăng nhập")
+                    .build();
+        }
+
+        if (req.getQuantity() == null || req.getQuantity() <= 0) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_BUSINESS)
+                    .message("Số lượng không hợp lệ")
+                    .build();
+        }
+
+        ProductVariant variant = productVariantRepository.findById(req.getVariantId()).orElse(null);
+        if (variant == null) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_NOT_FOUND)
+                    .message("Không tìm thấy phiên bản sản phẩm")
+                    .build();
+        }
+
+        if (variant.getQuantity() < req.getQuantity()) {
+            return CommonResponse.builder()
+                    .code(CommonResponse.CODE_NOT_FOUND)
+                    .message("Số lượng sản phẩm không đủ trong kho")
+                    .build();
+        }
+
+        // Giảm tồn kho
+        variant.setQuantity(variant.getQuantity() - req.getQuantity());
+        productVariantRepository.saveAndFlush(variant);
+
+        // Tạo Order
+        Order order = new Order();
+        order.setId(UUID.randomUUID().toString());
+        order.setOrderCode(Utils.generateUniqueCode("ORDER-"));
+        order.setCustomer(user);
+        order.setTotalAmount(variant.getPrice().multiply(BigDecimal.valueOf(req.getQuantity())));
+        order.setStatus(OrderStatus.PENDING.getCode());
+        order.setAddressDetail(req.getAddressLine());
+        order.setMethodTransaction("THANH TOÁN KHI NHẬN HÀNG");
+        order.setOrderItems(new ArrayList<>());
+        order.setCreatedAt(OffsetDateTime.now());
+        order.setUpdatedAt(OffsetDateTime.now());
+        orderRepository.save(order);
+
+        // Tạo OrderItem
+        OrderItem orderItem = new OrderItem();
+        orderItem.setId(UUID.randomUUID().toString());
+        orderItem.setOrder(order);
+        orderItem.setProductVariant(variant);
+        orderItem.setQuantity(req.getQuantity());
+        orderItem.setUnitPrice(variant.getPrice());
+        orderItemRepository.saveAndFlush(orderItem);
+
+        order.getOrderItems().add(orderItem);
+
+        // Lưu lịch sử trạng thái
+        OrderStatusHistory orderStatusHistory = new OrderStatusHistory();
+        orderStatusHistory.setId(UUID.randomUUID().toString());
+        orderStatusHistory.setOrder(order);
+        orderStatusHistory.setStatus(OrderStatus.PENDING.getCode());
+        orderStatusHistory.setCreatedAt(OffsetDateTime.now());
+        orderStatusHistory.setUpdatedAt(OffsetDateTime.now());
+        orderStatusHistoryRepository.saveAndFlush(orderStatusHistory);
+
+        return CommonResponse.builder()
+                .code(CommonResponse.CODE_SUCCESS)
+                .message("Đặt hàng thành công")
+                .data(OrderResponse.fromOrder(order))
                 .build();
     }
 
